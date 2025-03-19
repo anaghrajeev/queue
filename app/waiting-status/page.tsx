@@ -12,7 +12,9 @@ export default function WaitingStatusPage() {
   const groupSize = searchParams.get("group") || "2"
   const [waitTime, setWaitTime] = useState<number>(0)
   const [maxWaitTime, setMaxWaitTime] = useState<number>(30)
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
 
+   
   useEffect(() => {
     // Simulate real-time updates
     // In a real app, this would be connected to Firebase or another real-time database
@@ -21,9 +23,33 @@ export default function WaitingStatusPage() {
     // Calculate estimated wait time based on group size
     // This is just a simple simulation
     const baseWaitTime = 10 // minutes
-    const estimatedWaitTime = baseWaitTime + (size > 4 ? 15 : 5)
-    setMaxWaitTime(estimatedWaitTime)
 
+    const estimatedWaitTime = baseWaitTime + (size > 4 ? 15 : 5)
+
+    setMaxWaitTime(estimatedWaitTime)
+    const getPosition = async () => {
+      try {
+        const response = await fetch("/api/waiting", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+  
+        if (!response.ok) {
+          throw new Error("Failed to fetch waiting queue");
+        }
+  
+        const data = await response.json();
+        if (data.waitingGroups && Array.isArray(data.waitingGroups)) {
+          setQueuePosition(data.waitingGroups.length);
+        }
+      } catch (error) {
+        console.error("Error fetching queue position:", error);
+      }
+    };
+  
+    getPosition();
     // Simulate decreasing wait time
     const interval = setInterval(() => {
       setWaitTime((prev) => {
@@ -34,7 +60,7 @@ export default function WaitingStatusPage() {
         }
         return newValue
       })
-    }, 1000) // Update every second for demo purposes
+    }, 10000) // Update every second for demo purposes
 
     return () => clearInterval(interval)
   }, [groupSize])
@@ -61,7 +87,7 @@ export default function WaitingStatusPage() {
           <div className="rounded-lg bg-muted p-4">
             <h3 className="mb-2 font-semibold">Your position</h3>
             <div className="flex items-center justify-between">
-              <span className="text-3xl font-bold">#3</span>
+              <span className="text-3xl font-bold">{queuePosition}</span>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Group size: {groupSize}</p>
                 <p className="text-sm text-muted-foreground">Check-in time: {new Date().toLocaleTimeString()}</p>

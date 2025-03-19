@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -17,40 +17,61 @@ export default function CheckInPage() {
   const [mobileNumber, setMobileNumber] = useState("")
   const [hasSeniors, setHasSeniors] = useState(false)
   const [seniorCount, setSeniorCount] = useState("")
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+  
 
+  useEffect(()=>{
+    const getPosition=async()=>{
+      const response = await fetch("/api/waiting",{
+        method:"GET",
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+    }
+  })
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-
+  
     try {
-      // In a real app, you would send this data to your Firebase backend
+      // Prepare the check-in data
       const checkInData = {
-        groupSize: Number.parseInt(groupSize),
+        size: Number.parseInt(groupSize),
         mobileNumber,
         hasSeniors,
         seniorCount: hasSeniors ? Number.parseInt(seniorCount) : 0,
-        timestamp: new Date().toISOString(),
       }
-
-      console.log("Check-in data:", checkInData)
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
+  
+      // Send data to API
+      const response = await fetch('/api/waiting', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(checkInData),
+      })
+  
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to check in')
+      }
+  
       toast({
         title: "Check-in successful",
-        description: "You've been added to the waiting list",
+        description: `You've been added to the waiting list (Position: ${result.position})`,
       })
-
-      // Redirect to waiting status page
-      router.push(`/waiting-status?group=${groupSize}`)
+  
+      // Redirect to waiting status page with group ID for future reference
+      router.push(`/waiting-status?id=${result.group.id}`)
     } catch (error) {
       toast({
         title: "Check-in failed",
-        description: "An error occurred during check-in",
+        description: error instanceof Error ? error.message : "An error occurred during check-in",
         variant: "destructive",
       })
     } finally {

@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 type TableStatus = "free" | "engaged" | "cleaning"
 
 // Table interface
-interface Table {
+interface TableInterface {
   id: number
   number: number
   capacity: number
@@ -33,15 +33,45 @@ interface WaitingGroup {
 }
 
 export default function DashboardPage() {
-  const [tables, setTables] = useState<Table[]>([])
+  const [tables, setTables] = useState<TableInterface[]>([])
   const [waitingGroups, setWaitingGroups] = useState<WaitingGroup[]>([])
   const { toast } = useToast()
   const [cleaningTimers, setCleaningTimers] = useState<Record<number, NodeJS.Timeout>>({})
 
   // Initialize tables and waiting groups
   useEffect(() => {
-    // In a real app, this would fetch from Firebase
-    const initialTables: Table[] = [
+    const fetchWaitingGroups = async () => {
+      try {
+        const response = await fetch("/api/waiting", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch waiting groups")
+        }
+
+        const data = await response.json()
+        console.log("API response:", data)
+
+        // Update waiting groups from API data
+        if (data.waitingGroups && Array.isArray(data.waitingGroups)) {
+          setWaitingGroups(data.waitingGroups)
+        }
+      } catch (error) {
+        console.error("Error fetching waiting groups:", error)
+        toast({
+          title: "Error",
+          description: "Failed to fetch waiting list data",
+          variant: "destructive",
+        })
+      }
+    }
+
+    // Initialize tables (in a real app, this would also come from an API)
+    const initialTables: TableInterface[] = [
       { id: 1, number: 101, capacity: 2, status: "free" },
       { id: 2, number: 102, capacity: 2, status: "engaged", occupiedAt: new Date().toISOString() },
       { id: 3, number: 103, capacity: 4, status: "free" },
@@ -52,36 +82,17 @@ export default function DashboardPage() {
       { id: 8, number: 108, capacity: 8, status: "free" },
     ]
 
-    const initialWaitingGroups: WaitingGroup[] = [
-      {
-        id: 1,
-        size: 2,
-        mobileNumber: "555-123-4567",
-        hasSeniors: false,
-        seniorCount: 0,
-        checkInTime: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        size: 4,
-        mobileNumber: "555-234-5678",
-        hasSeniors: true,
-        seniorCount: 1,
-        checkInTime: new Date().toISOString(),
-      },
-      {
-        id: 3,
-        size: 6,
-        mobileNumber: "555-345-6789",
-        hasSeniors: false,
-        seniorCount: 0,
-        checkInTime: new Date().toISOString(),
-      },
-    ]
-
     setTables(initialTables)
-    setWaitingGroups(initialWaitingGroups)
-  }, [])
+
+    // Fetch waiting groups from API
+    fetchWaitingGroups()
+
+    // Set up polling to refresh waiting list data every 30 seconds
+    const intervalId = setInterval(fetchWaitingGroups, 30000)
+
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId)
+  }, [toast])
 
   useEffect(() => {
     return () => {
@@ -128,7 +139,10 @@ export default function DashboardPage() {
         5 * 60 * 1000,
       ) // 5 minutes in milliseconds
 
-      setCleaningTimers((prev) => ({ ...prev, [tableId]: timer }))
+      setCleaningTimers((prev) => ({
+        ...prev,
+        [tableId]: timer,
+      }))
     }
 
     setTables((prevTables) =>
@@ -164,7 +178,7 @@ export default function DashboardPage() {
   }
 
   // Assign a table to a waiting group
-  const assignTableToWaitingGroup = (table: Table) => {
+  const assignTableToWaitingGroup = (table: TableInterface) => {
     // Find suitable waiting groups (size <= table capacity)
     const suitableGroups = waitingGroups.filter((group) => group.size <= table.capacity)
 
@@ -195,16 +209,36 @@ export default function DashboardPage() {
     })
   }
 
-  // Remove a waiting group
-  const removeWaitingGroup = (groupId: number) => {
-    setWaitingGroups((prev) => prev.filter((group) => group.id !== groupId))
-
-    toast({
-      title: "Group removed",
-      description: "Group has been removed from the waiting list",
-    })
-  }
-
+  const removeWaitingGroup = async (groupId: number) => {
+    try {
+      const response = await fetch("/api/waiting", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ groupId }), // Send as object
+      });
+  
+      if (!response.ok) {
+        throw new Error("Failed to remove waiting group");
+      }
+  
+      const data = await response.json();
+      console.log("API response:", data);
+  
+      if (Array.isArray(data.waitingGroups)) {
+        setWaitingGroups(data.waitingGroups);
+      }
+  
+      toast({
+        title: "Group removed",
+        description: "Group has been removed from the waiting list",
+      });
+    } catch (error) {
+      console.error("Error removing group:", error);
+    }
+  };
+  
   // Get status badge color
   const getStatusBadge = (status: TableStatus) => {
     switch (status) {

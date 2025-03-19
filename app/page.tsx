@@ -6,7 +6,7 @@ export default function Home() {
     <div className="flex min-h-screen flex-col">
       <header className="bg-primary px-6 py-4">
         <div className="mx-auto max-w-7xl">
-          <h1 className="text-2xl font-bold text-white ">enSpoon</h1>
+          <h1 className="text-2xl font-bold text-white ">GreenSpoon</h1>
         </div>
       </header>
       <main className="flex-1">
