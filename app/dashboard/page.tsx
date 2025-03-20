@@ -70,19 +70,11 @@ export default function DashboardPage() {
       }
     }
 
-    // Initialize tables (in a real app, this would also come from an API)
-    const initialTables: TableInterface[] = [
-      { id: 1, number: 101, capacity: 2, status: "free" },
-      { id: 2, number: 102, capacity: 2, status: "engaged", occupiedAt: new Date().toISOString() },
-      { id: 3, number: 103, capacity: 4, status: "free" },
-      { id: 4, number: 104, capacity: 4, status: "engaged", occupiedAt: new Date().toISOString() },
-      { id: 5, number: 105, capacity: 4, status: "cleaning" },
-      { id: 6, number: 106, capacity: 6, status: "free" },
-      { id: 7, number: 107, capacity: 6, status: "engaged", occupiedAt: new Date().toISOString() },
-      { id: 8, number: 108, capacity: 8, status: "free" },
-    ]
-
-    setTables(initialTables)
+    // Load tables from localStorage
+    const savedTables = localStorage.getItem('restaurantTables')
+    if (savedTables) {
+      setTables(JSON.parse(savedTables))
+    }
 
     // Fetch waiting groups from API
     fetchWaitingGroups()
@@ -115,16 +107,19 @@ export default function DashboardPage() {
     if (newStatus === "cleaning") {
       const timer = setTimeout(
         () => {
-          setTables((prevTables) =>
-            prevTables.map((table) =>
+          setTables((prevTables) => {
+            const updatedTables = prevTables.map((table) =>
               table.id === tableId
                 ? {
                     ...table,
                     status: "free",
                   }
                 : table,
-            ),
-          )
+            )
+            // Save to localStorage
+            localStorage.setItem('restaurantTables', JSON.stringify(updatedTables))
+            return updatedTables
+          })
 
           toast({
             title: "Table cleaning complete",
@@ -136,8 +131,8 @@ export default function DashboardPage() {
           delete updatedTimers[tableId]
           setCleaningTimers(updatedTimers)
         },
-        5 * 60 * 1000,
-      ) // 5 minutes in milliseconds
+        10 * 1000,
+      ) // 10 seconds for testing (would be 5 minutes in production)
 
       setCleaningTimers((prev) => ({
         ...prev,
@@ -145,8 +140,8 @@ export default function DashboardPage() {
       }))
     }
 
-    setTables((prevTables) =>
-      prevTables.map((table) =>
+    setTables((prevTables) => {
+      const updatedTables = prevTables.map((table) =>
         table.id === tableId
           ? {
               ...table,
@@ -154,8 +149,11 @@ export default function DashboardPage() {
               occupiedAt: newStatus === "engaged" ? new Date().toISOString() : undefined,
             }
           : table,
-      ),
-    )
+      )
+      // Save to localStorage
+      localStorage.setItem('restaurantTables', JSON.stringify(updatedTables))
+      return updatedTables
+    })
 
     const statusMessages = {
       free: "Table marked as available",
@@ -168,47 +166,10 @@ export default function DashboardPage() {
       description: `Table ${tables.find((t) => t.id === tableId)?.number} status updated`,
     })
 
-    // If a table becomes free, check if we can assign a waiting group
-    if (newStatus === "free" && waitingGroups.length > 0) {
-      const table = tables.find((t) => t.id === tableId)
-      if (table) {
-        assignTableToWaitingGroup(table)
-      }
-    }
+    // Removed the automatic assignment of waiting groups when a table becomes free
   }
 
-  // Assign a table to a waiting group
-  const assignTableToWaitingGroup = (table: TableInterface) => {
-    // Find suitable waiting groups (size <= table capacity)
-    const suitableGroups = waitingGroups.filter((group) => group.size <= table.capacity)
-
-    if (suitableGroups.length === 0) return
-
-    // Sort by priority: seniors first, then check-in time
-    suitableGroups.sort((a, b) => {
-      // Senior priority
-      if (a.hasSeniors && !b.hasSeniors) return -1
-      if (!a.hasSeniors && b.hasSeniors) return 1
-
-      // If both have or don't have seniors, sort by check-in time
-      return new Date(a.checkInTime).getTime() - new Date(b.checkInTime).getTime()
-    })
-
-    // Get the highest priority group
-    const groupToAssign = suitableGroups[0]
-
-    // Update table status
-    handleTableStatusChange(table.id, "engaged")
-
-    // Remove group from waiting list
-    setWaitingGroups((prev) => prev.filter((group) => group.id !== groupToAssign.id))
-
-    toast({
-      title: "Table assigned",
-      description: `Group of ${groupToAssign.size} assigned to table ${table.number}`,
-    })
-  }
-
+  // Remove waiting group from the list
   const removeWaitingGroup = async (groupId: number) => {
     try {
       const response = await fetch("/api/waiting", {
@@ -218,18 +179,18 @@ export default function DashboardPage() {
         },
         body: JSON.stringify({ groupId }), // Send as object
       });
-  
+
       if (!response.ok) {
         throw new Error("Failed to remove waiting group");
       }
-  
+
       const data = await response.json();
       console.log("API response:", data);
-  
+
       if (Array.isArray(data.waitingGroups)) {
         setWaitingGroups(data.waitingGroups);
       }
-  
+
       toast({
         title: "Group removed",
         description: "Group has been removed from the waiting list",
@@ -238,7 +199,7 @@ export default function DashboardPage() {
       console.error("Error removing group:", error);
     }
   };
-  
+
   // Get status badge color
   const getStatusBadge = (status: TableStatus) => {
     switch (status) {
@@ -484,4 +445,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-

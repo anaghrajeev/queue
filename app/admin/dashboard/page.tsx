@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -27,22 +26,18 @@ export default function AdminDashboardPage() {
   const [editingTable, setEditingTable] = useState<TableData | null>(null)
   const { toast } = useToast()
 
-  // Initialize tables
+  // Load tables from localStorage on component mount
   useEffect(() => {
-    // In a real app, this would fetch from Firebase
-    const initialTables: TableData[] = [
-      { id: 1, number: 101, capacity: 2, status: "free" },
-      { id: 2, number: 102, capacity: 2, status: "engaged" },
-      { id: 3, number: 103, capacity: 4, status: "free" },
-      { id: 4, number: 104, capacity: 4, status: "engaged" },
-      { id: 5, number: 105, capacity: 4, status: "cleaning" },
-      { id: 6, number: 106, capacity: 6, status: "free" },
-      { id: 7, number: 107, capacity: 6, status: "engaged" },
-      { id: 8, number: 108, capacity: 8, status: "free" },
-    ]
-
-    setTables(initialTables)
+    const savedTables = localStorage.getItem('restaurantTables')
+    if (savedTables) {
+      setTables(JSON.parse(savedTables))
+    }
   }, [])
+
+  // Save tables to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('restaurantTables', JSON.stringify(tables))
+  }, [tables])
 
   // Add a new table
   const handleAddTable = (e: React.FormEvent) => {
@@ -108,7 +103,6 @@ export default function AdminDashboardPage() {
     if (!editingTable) return
 
     setTables(tables.map((table) => (table.id === editingTable.id ? editingTable : table)))
-
     setEditingTable(null)
 
     toast({
@@ -287,4 +281,3 @@ export default function AdminDashboardPage() {
     </div>
   )
 }
-

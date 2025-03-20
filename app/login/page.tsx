@@ -69,7 +69,7 @@ export default function LoginPage() {
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username hello</Label>
+              <Label htmlFor="username">Username </Label>
               <Input
                 id="username"
                 type="text"
