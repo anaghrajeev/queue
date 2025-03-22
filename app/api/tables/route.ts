@@ -1,30 +1,26 @@
 import { NextResponse } from "next/server"
 
-// In a real application, you would connect to Firebase here
-// This is a mock implementation for demonstration purposes
-
 // Table status types
 type TableStatus = "free" | "engaged" | "cleaning"
 
 // Table interface
-interface Table {
+interface TableInterface {
   id: number
   number: number
   capacity: number
   status: TableStatus
   occupiedAt?: string
+  estimatedWaitTime?: number
+  assignedGroupId?: number
 }
 
-// Mock database
-const tables: Table[] = [
-  { id: 1, number: 101, capacity: 2, status: "free" },
-  { id: 2, number: 102, capacity: 2, status: "engaged", occupiedAt: new Date().toISOString() },
-  { id: 3, number: 103, capacity: 4, status: "free" },
-  { id: 4, number: 104, capacity: 4, status: "engaged", occupiedAt: new Date().toISOString() },
-  { id: 5, number: 105, capacity: 4, status: "cleaning" },
-  { id: 6, number: 106, capacity: 6, status: "free" },
-  { id: 7, number: 107, capacity: 6, status: "engaged", occupiedAt: new Date().toISOString() },
-  { id: 8, number: 108, capacity: 8, status: "free" },
+// Initialize with some default tables if none exist
+let tables: TableInterface[] = [
+  { id: 1, number: 1, capacity: 2, status: "free" },
+  { id: 2, number: 2, capacity: 4, status: "free" },
+  { id: 3, number: 3, capacity: 6, status: "free" },
+  { id: 4, number: 4, capacity: 2, status: "free" },
+  { id: 5, number: 5, capacity: 4, status: "free" },
 ]
 
 export async function GET() {
@@ -34,34 +30,39 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const data = await request.json()
-
-    // Validate the data
-    if (!data.tableId || !data.status) {
-      return NextResponse.json({ error: "Invalid table data" }, { status: 400 })
+    
+    if (!data.tableId) {
+      return NextResponse.json({ error: "Table ID is required" }, { status: 400 })
     }
-
-    // Find and update the table
-    const tableIndex = tables.findIndex((table) => table.id === data.tableId)
-
+    
+    const tableIndex = tables.findIndex(table => table.id === data.tableId)
+    
     if (tableIndex === -1) {
       return NextResponse.json({ error: "Table not found" }, { status: 404 })
     }
-
-    // Update the table status
+    
+    // Update table with new data
     tables[tableIndex] = {
       ...tables[tableIndex],
-      status: data.status,
-      occupiedAt: data.status === "engaged" ? new Date().toISOString() : undefined,
+      ...data.updates,
+      // If status is changing to engaged, set occupiedAt timestamp
+      ...(data.updates.status === "engaged" && { occupiedAt: new Date().toISOString() }),
+      // If status is changing to free, remove occupiedAt and estimatedWaitTime
+      ...(data.updates.status === "free" && { 
+        occupiedAt: undefined, 
+        estimatedWaitTime: undefined,
+        assignedGroupId: undefined
+      })
     }
-
-    return NextResponse.json({
-      success: true,
-      message: "Table status updated",
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: "Table updated successfully",
       table: tables[tableIndex],
+      tables
     })
   } catch (error) {
     console.error("Error updating table:", error)
     return NextResponse.json({ error: "Failed to update table" }, { status: 500 })
   }
 }
-

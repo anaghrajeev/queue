@@ -1,132 +1,145 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { useToast } from "@/hooks/use-toast"
-import { LogOut, Plus, Trash, Edit, Save, X } from "lucide-react"
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Provider, useDispatch, useSelector } from "react-redux";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { LogOut, Plus, Trash, Edit, Save, X, Loader2 } from "lucide-react";
+import { 
+  TableState, 
+  TableStatus, 
+  fetchTables, 
+  addTable, 
+  updateTable, 
+  deleteTable 
+} from "../../Redux/slice/tableSlice";
+import { AppDispatch, RootState } from "../../Redux/store/store";
+import store from "../../Redux/store/store";
 
-// Table interface
-interface TableData {
-  id: number
-  number: number
-  capacity: number
-  status: "free" | "engaged" | "cleaning"
+export default function AdminDashboard() {
+  return (
+    <Provider store={store}>
+      <AdminDashboardPage />
+    </Provider>
+  )
 }
 
-export default function AdminDashboardPage() {
-  const [tables, setTables] = useState<TableData[]>([])
-  const [newTable, setNewTable] = useState({ number: "", capacity: "" })
-  const [editingTable, setEditingTable] = useState<TableData | null>(null)
-  const { toast } = useToast()
+function AdminDashboardPage() {
+  const dispatch = useDispatch<AppDispatch>();
+  const { tables, loading, error } = useSelector((state: RootState) => state.tables);
+  const { toast } = useToast();
 
-  // Load tables from localStorage on component mount
+  const [newTable, setNewTable] = useState<Omit<TableState, 'tableId'>>({
+    tableNumber: 0,
+    capacity: 0,
+    status: TableStatus.free,
+    engagedTime: null,
+    cleaningTime: null
+  });
+
+  const [editingTable, setEditingTable] = useState<TableState | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [tableToDelete, setTableToDelete] = useState<number | null>(null);
+
   useEffect(() => {
-    const savedTables = localStorage.getItem('restaurantTables')
-    if (savedTables) {
-      setTables(JSON.parse(savedTables))
-    }
-  }, [])
+    dispatch(fetchTables());
+  }, [dispatch]);
 
-  // Save tables to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('restaurantTables', JSON.stringify(tables))
-  }, [tables])
-
-  // Add a new table
-  const handleAddTable = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    // Validate inputs
-    if (!newTable.number || !newTable.capacity) {
+    if (error) {
       toast({
-        title: "Validation error",
-        description: "Please fill in all fields",
+        title: "Error",
+        description: error,
         variant: "destructive",
-      })
-      return
+      });
     }
+  }, [error, toast]);
 
-    const tableNumber = Number.parseInt(newTable.number)
-    const tableCapacity = Number.parseInt(newTable.capacity)
-
-    // Check if table number already exists
-    if (tables.some((table) => table.number === tableNumber)) {
+  const handleAddTable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate table number is unique
+    if (tables.some(table => table.tableNumber === newTable.tableNumber)) {
       toast({
-        title: "Validation error",
+        title: "Error",
         description: "Table number already exists",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    // Create new table
-    const newTableObj: TableData = {
-      id: tables.length > 0 ? Math.max(...tables.map((t) => t.id)) + 1 : 1,
-      number: tableNumber,
-      capacity: tableCapacity,
-      status: "free",
+    await dispatch(addTable(newTable));
+    setNewTable({
+      tableNumber: 0,
+      capacity: 2,
+      status: TableStatus.free,
+      engagedTime: null,
+      cleaningTime: null
+    });
+    
+    toast({
+      title: "Success",
+      description: "Table added successfully",
+    });
+  };
+
+  const handleEditTable = (table: TableState) => {
+    setEditingTable(table);
+    setIsEditing(true);
+  };
+
+  const saveEditedTable = async () => {
+    if (editingTable) {
+      await dispatch(updateTable(editingTable));
+      setIsEditing(false);
+      setEditingTable(null);
+      
+      toast({
+        title: "Success",
+        description: "Table updated successfully",
+      });
     }
+  };
 
-    setTables([...tables, newTableObj])
-    setNewTable({ number: "", capacity: "" })
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditingTable(null);
+  };
 
-    toast({
-      title: "Table added",
-      description: `Table ${tableNumber} has been added successfully`,
-    })
-  }
+  const confirmDelete = (tableId: number) => {
+    setTableToDelete(tableId);
+  };
 
-  // Delete a table
-  const handleDeleteTable = (id: number) => {
-    setTables(tables.filter((table) => table.id !== id))
+  const handleDeleteTable = async () => {
+    if (tableToDelete !== null) {
+      await dispatch(deleteTable(tableToDelete));
+      setTableToDelete(null);
+      
+      toast({
+        title: "Success",
+        description: "Table deleted successfully",
+      });
+    }
+  };
 
-    toast({
-      title: "Table deleted",
-      description: "Table has been removed successfully",
-    })
-  }
-
-  // Start editing a table
-  const handleEditTable = (table: TableData) => {
-    setEditingTable(table)
-  }
-
-  // Save edited table
-  const handleSaveEdit = () => {
-    if (!editingTable) return
-
-    setTables(tables.map((table) => (table.id === editingTable.id ? editingTable : table)))
-    setEditingTable(null)
-
-    toast({
-      title: "Table updated",
-      description: `Table ${editingTable.number} has been updated successfully`,
-    })
-  }
-
-  // Cancel editing
-  const handleCancelEdit = () => {
-    setEditingTable(null)
-  }
-
-  // Get status badge color
-  const getStatusBadge = (status: "free" | "engaged" | "cleaning") => {
+  const getStatusBadge = (status: TableStatus) => {
     switch (status) {
-      case "free":
-        return <Badge className="bg-green-500">Free</Badge>
-      case "engaged":
-        return <Badge className="bg-red-500">Engaged</Badge>
-      case "cleaning":
-        return <Badge className="bg-yellow-500">Cleaning</Badge>
+      case TableStatus.free:
+        return <Badge className="bg-green-500">Free</Badge>;
+      case TableStatus.engaged:
+        return <Badge className="bg-red-500">Engaged</Badge>;
+      case TableStatus.cleaning:
+        return <Badge className="bg-yellow-500">Cleaning</Badge>;
     }
-  }
+  };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -135,20 +148,16 @@ export default function AdminDashboardPage() {
           <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
           <div className="flex items-center gap-4">
             <Link href="/dashboard">
-              <Button variant="secondary" size="sm">
-                Waiter Dashboard
-              </Button>
+              <Button variant="secondary" size="sm">Waiter Dashboard</Button>
             </Link>
             <Link href="/login">
               <Button variant="outline" size="sm" className="gap-2">
-                <LogOut className="h-4 w-4" />
-                Logout
+                <LogOut className="h-4 w-4" /> Logout
               </Button>
             </Link>
           </div>
         </div>
       </header>
-
       <main className="flex-1 p-6">
         <div className="mx-auto max-w-7xl space-y-6">
           <Card>
@@ -160,124 +169,201 @@ export default function AdminDashboardPage() {
               <form onSubmit={handleAddTable} className="flex flex-wrap items-end gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="tableNumber">Table Number</Label>
-                  <Input
-                    id="tableNumber"
-                    type="number"
-                    placeholder="e.g. 101"
-                    value={newTable.number}
-                    onChange={(e) => setNewTable({ ...newTable, number: e.target.value })}
-                    className="w-32"
-                    min="1"
-                    required
+                  <Input 
+                    id="tableNumber" 
+                    type="number" 
+                    value={newTable.tableNumber || ""} 
+                    onChange={(e) => setNewTable({ ...newTable, tableNumber: Number(e.target.value) })} 
+                    className="w-32" 
+                    min="1" 
+                    required 
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="tableCapacity">Capacity</Label>
-                  <Input
-                    id="tableCapacity"
-                    type="number"
-                    placeholder="e.g. 4"
-                    value={newTable.capacity}
-                    onChange={(e) => setNewTable({ ...newTable, capacity: e.target.value })}
-                    className="w-32"
-                    min="1"
-                    required
+                  <Input 
+                    id="tableCapacity" 
+                    type="number" 
+                    value={newTable.capacity || ""} 
+                    onChange={(e) => setNewTable({ ...newTable, capacity: Number(e.target.value) })} 
+                    className="w-32" 
+                    min="1" 
+                    required 
                   />
                 </div>
-                <Button type="submit" className="gap-2">
-                  <Plus className="h-4 w-4" />
+                <div className="space-y-2">
+                  <Label htmlFor="tableStatus">Status</Label>
+                  <Select 
+                    value={newTable.status} 
+                    onValueChange={(value) => setNewTable({ ...newTable, status: value as TableStatus })}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={TableStatus.free}>Free</SelectItem>
+                      <SelectItem value={TableStatus.engaged}>Engaged</SelectItem>
+                      <SelectItem value={TableStatus.cleaning}>Cleaning</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" className="gap-2" disabled={loading}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} 
                   Add Table
                 </Button>
               </form>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle>Manage Tables</CardTitle>
               <CardDescription>View, edit or delete restaurant tables</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Table Number</TableHead>
-                    <TableHead>Capacity</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tables.length === 0 ? (
+              {loading && !tables.length ? (
+                <div className="flex justify-center p-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : tables.length === 0 ? (
+                <div className="text-center p-8 text-muted-foreground">
+                  No tables found. Add a table to get started.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center">
-                        No tables found. Add your first table above.
-                      </TableCell>
+                      <TableHead>Table Number</TableHead>
+                      <TableHead>Capacity</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ) : (
-                    tables.map((table) => (
-                      <TableRow key={table.id}>
-                        <TableCell>
-                          {editingTable?.id === table.id ? (
-                            <Input
-                              type="number"
-                              value={editingTable.number}
-                              onChange={(e) =>
-                                setEditingTable({ ...editingTable, number: Number.parseInt(e.target.value) })
-                              }
-                              className="w-20"
-                              min="1"
-                            />
-                          ) : (
-                            table.number
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {editingTable?.id === table.id ? (
-                            <Input
-                              type="number"
-                              value={editingTable.capacity}
-                              onChange={(e) =>
-                                setEditingTable({ ...editingTable, capacity: Number.parseInt(e.target.value) })
-                              }
-                              className="w-20"
-                              min="1"
-                            />
-                          ) : (
-                            `${table.capacity} people`
-                          )}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(table.status)}</TableCell>
-                        <TableCell className="text-right">
-                          {editingTable?.id === table.id ? (
-                            <div className="flex justify-end gap-2">
-                              <Button size="sm" variant="outline" onClick={handleSaveEdit}>
-                                <Save className="h-4 w-4" />
+                  </TableHeader>
+                  <TableBody>
+                    {tables.map((table) => (
+                      <TableRow key={table.tableId}>
+                        {isEditing && editingTable?.tableId === table.tableId ? (
+                          // Editing mode
+                          <>
+                            <TableCell>
+                              <Input 
+                                type="number" 
+                                value={editingTable.tableNumber} 
+                                onChange={(e) => setEditingTable({ 
+                                  ...editingTable, 
+                                  tableNumber: Number(e.target.value) 
+                                })} 
+                                className="w-20" 
+                                min="1" 
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input 
+                                type="number" 
+                                value={editingTable.capacity} 
+                                onChange={(e) => setEditingTable({ 
+                                  ...editingTable, 
+                                  capacity: Number(e.target.value) 
+                                })} 
+                                className="w-20" 
+                                min="1" 
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Select 
+                                value={editingTable.status} 
+                                onValueChange={(value) => setEditingTable({ 
+                                  ...editingTable, 
+                                  status: value as TableStatus 
+                                })}
+                              >
+                                <SelectTrigger className="w-24">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value={TableStatus.free}>Free</SelectItem>
+                                  <SelectItem value={TableStatus.engaged}>Engaged</SelectItem>
+                                  <SelectItem value={TableStatus.cleaning}>Cleaning</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={saveEditedTable} 
+                                className="mr-2"
+                                disabled={loading}
+                              >
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                               </Button>
-                              <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={cancelEdit}
+                                disabled={loading}
+                              >
                                 <X className="h-4 w-4" />
                               </Button>
-                            </div>
-                          ) : (
-                            <div className="flex justify-end gap-2">
-                              <Button size="sm" variant="outline" onClick={() => handleEditTable(table)}>
+                            </TableCell>
+                          </>
+                        ) : (
+                          // Display mode
+                          <>
+                            <TableCell>{table.tableNumber}</TableCell>
+                            <TableCell>{table.capacity} people</TableCell>
+                            <TableCell>{getStatusBadge(table.status)}</TableCell>
+                            <TableCell className="text-right">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => handleEditTable(table)}
+                                className="mr-2"
+                                disabled={loading}
+                              >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button size="sm" variant="outline" onClick={() => handleDeleteTable(table.id)}>
-                                <Trash className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
+                              <AlertDialog open={tableToDelete === table.tableId} onOpenChange={(open) => !open && setTableToDelete(null)}>
+                                <AlertDialogTrigger asChild>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => confirmDelete(table.tableId)}
+                                    disabled={loading}
+                                  >
+                                    <Trash className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action will permanently delete table #{table.tableNumber}. This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={handleDeleteTable}
+                                      className="bg-red-500 hover:bg-red-600"
+                                    >
+                                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </TableCell>
+                          </>
+                        )}
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </div>
       </main>
     </div>
-  )
+  );
 }

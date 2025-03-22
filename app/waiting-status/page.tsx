@@ -1,160 +1,227 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle2 } from "lucide-react"
+import { CheckCircle2, Clock, AlertCircle } from 'lucide-react'
+import { Provider, useDispatch, useSelector } from "react-redux"
+import { RootState } from "../Redux/store/store"
+import { fetchCheckIns } from "../Redux/slice/checkInSlice"
+import { useSearchParams } from "next/navigation"
+import store from "../Redux/store/store"
+const WaitingPage =()=>{
+  return (
+    <Provider store={store}>
+      <WaitingStatusPage />
+    </Provider>
+  )
+}
+export default WaitingPage
 
-export default function WaitingStatusPage() {
+function WaitingStatusPage() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isCancelled, setIsCancelled] = useState(false)
+  const [currentCheckIn, setCurrentCheckIn] = useState<any>(null)
+  
+  const dispatch = useDispatch()
+  const checkIns = useSelector((state: RootState) => state.checkIn.checkIns)
   const searchParams = useSearchParams()
-  const groupSize = searchParams.get("id") || "2"
-  const [waitTime, setWaitTime] = useState<number>(0)
-  const [maxWaitTime, setMaxWaitTime] = useState<number>(30)
-  const [queuePosition, setQueuePosition] = useState<number | null>(null)
-  const [isSeated, setIsSeated] = useState<boolean>(false)
-  const [assignedTable, setAssignedTable] = useState<number | null>(null)
-  const [seatedTime, setSeatedTime] = useState<string | null>(null)
+  const mobileNumber = searchParams.get('mobile')
+  
+  // Calculate wait time - roughly 15 mins per group ahead in queue
+  const calculateWaitTime = (position: number) => {
+    const groupsAhead = position - 1
+    return Math.max(5, groupsAhead * 15) // Minimum 5 minutes, 15 mins per group ahead
+  }
+  
+  // Calculate progress percentage
+  const calculateProgress = (position: number, totalGroups: number) => {
+    if (totalGroups <= 1) return 100
+    const progressValue = 100 - ((position - 1) / totalGroups) * 100
+    return Math.min(Math.max(progressValue, 5), 100) // Between 5% and 100%
+  }
+  
+  // Format the check-in time
+  const formatTime = (timestamp: string | undefined) => {
+    if (!timestamp) return "--"
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
 
   useEffect(() => {
-    // Simulate real-time updates
-    const size = Number.parseInt(groupSize)
-    const baseWaitTime = 10 // minutes
-    const estimatedWaitTime = baseWaitTime + (size > 4 ? 15 : 5)
-    setMaxWaitTime(estimatedWaitTime)
-
-    const getStatus = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch("/api/waiting", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch waiting queue")
-        }
-
-        const data = await response.json()
-        
-        // Check if the group is in waiting list
-        if (data.waitingGroups && Array.isArray(data.waitingGroups)) {
-          setQueuePosition(data.waitingGroups.length)
-        }
-
-        // Check if the group has been seated
-        if (data.tables && Array.isArray(data.tables)) {
-          const engagedTable = data.tables.find(
-            (table: any) => table.status === "engaged" && table.groupSize === Number(groupSize)
-          )
-          
-          if (engagedTable) {
-            setIsSeated(true)
-            setAssignedTable(engagedTable.number)
-            setSeatedTime(engagedTable.occupiedAt)
-            setQueuePosition(null)
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching status:", error)
+        setLoading(true)
+        await dispatch(fetchCheckIns() as any)
+        setLoading(false)
+      } catch (err: any) {
+        setError(err.message || "Failed to load waiting status")
+        setLoading(false)
       }
     }
-
-    getStatus()
     
-    // Poll for updates every 30 seconds
-    const interval = setInterval(getStatus, 30000)
-
-    // Update wait time progress
-    const timeInterval = setInterval(() => {
-      if (!isSeated) {
-        setWaitTime((prev) => {
-          const newValue = prev + 1
-          if (newValue >= estimatedWaitTime) {
-            clearInterval(timeInterval)
-            return estimatedWaitTime
-          }
-          return newValue
-        })
+    fetchData()
+  }, [dispatch])
+  
+  useEffect(() => {
+    if (!loading && checkIns.length > 0 && mobileNumber) {
+      const foundCheckIn = checkIns.find(
+        (record) => record.mobileNumber === mobileNumber
+      )
+      
+      if (foundCheckIn) {
+        setCurrentCheckIn(foundCheckIn)
+      } else {
+        setError("No check-in found with this mobile number")
       }
-    }, 10000)
-
-    return () => {
-      clearInterval(interval)
-      clearInterval(timeInterval)
+    } else if (!loading && checkIns.length === 0) {
+      setError("No check-ins available")
+    } else if (!loading && !mobileNumber) {
+      setError("Mobile number not provided")
     }
-  }, [groupSize, isSeated])
+  }, [checkIns, loading, mobileNumber])
 
-  const progressPercentage = (waitTime / maxWaitTime) * 100
-  const remainingTime = Math.max(0, maxWaitTime - waitTime)
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center p-8">
+            <Clock className="h-12 w-12 animate-pulse text-primary mb-4" />
+            <p className="text-lg font-medium">Loading your waiting status...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center p-8">
+            <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+            <p className="text-lg font-medium">{error}</p>
+            <Link href="/" className="mt-4">
+              <Button variant="outline">Return to Home</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (isCancelled) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold">Waiting Status</CardTitle>
+            <CardDescription>Your reservation has been cancelled</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="rounded-lg bg-destructive/10 p-4">
+              <h3 className="mb-2 font-semibold text-destructive">Reservation Cancelled</h3>
+              <p className="text-sm">
+                Your reservation has been cancelled. Please check with the restaurant staff for more information.
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-4">
+            <Link href="/" className="w-full">
+              <Button variant="outline" className="w-full">
+                Return to Home
+              </Button>
+            </Link>
+          </CardFooter>
+        </Card>
+      </div>
+    )
+  }
+
+  // If we have a current check-in
+  if (currentCheckIn) {
+    const waitTime = calculateWaitTime(currentCheckIn.queuePosition)
+    const progress = calculateProgress(currentCheckIn.queuePosition, checkIns.length)
+    
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold">Waiting Status</CardTitle>
+            <CardDescription>
+              Your group is in the queue (Position: {currentCheckIn.queuePosition})
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Estimated wait time</span>
+                <span className="text-sm font-medium">{waitTime} minutes</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+
+            <div className="rounded-lg bg-muted p-4">
+              <h3 className="mb-2 font-semibold">Status</h3>
+              <div className="flex items-center justify-between">
+                <span className="text-3xl font-bold">#{currentCheckIn.queuePosition}</span>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">
+                    Group size: {currentCheckIn.numberOfPeople}
+                    {currentCheckIn.hasSeniors && ` (incl. ${currentCheckIn.seniorCount} seniors)`}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Mobile: {currentCheckIn.mobileNumber}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Check-in time: {formatTime(currentCheckIn.checkInTime) || "Recently"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border p-4">
+              <h3 className="mb-2 font-semibold">Table assignment</h3>
+              <p className="text-sm text-muted-foreground">
+                You will be notified when your table is ready.
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-4">
+            <Button 
+              variant="destructive" 
+              className="w-full mb-2"
+              onClick={() => setIsCancelled(true)}
+            >
+              Cancel Check-in
+            </Button>
+            <Link href="/" className="w-full">
+              <Button variant="outline" className="w-full">
+                Return to Home
+              </Button>
+            </Link>
+          </CardFooter>
+        </Card>
+      </div>
+    )
+  }
+
+  // Fallback - should never reach this if all conditions are handled correctly
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">Waiting Status</CardTitle>
-          <CardDescription>Your group of {groupSize} {isSeated ? 'has been seated' : 'is in the queue'}</CardDescription>
+          <CardDescription>No check-in information available</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {!isSeated && (
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm font-medium">Estimated wait time</span>
-                <span className="text-sm font-medium">{remainingTime} minutes</span>
-              </div>
-              <Progress value={progressPercentage} className="h-2" />
-            </div>
-          )}
-
-          <div className="rounded-lg bg-muted p-4">
-            <h3 className="mb-2 font-semibold">Status</h3>
-            <div className="flex items-center justify-between">
-              {isSeated || queuePosition==0? (
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-6 w-6 text-green-500" />
-                  <span className="text-lg font-medium">Seated</span>
-                </div>
-              ) : (
-                <span className="text-3xl font-bold">{queuePosition}</span>
-              )}
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Group size: {groupSize}</p>
-                <p className="text-sm text-muted-foreground">
-                  {isSeated 
-                    ? `Seated at: ${new Date(seatedTime!).toLocaleTimeString()}`
-                    : `Check-in time: ${new Date().toLocaleTimeString()}`
-                  }
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg border p-4">
-            <h3 className="mb-2 font-semibold">Table assignment</h3>
-            {isSeated || queuePosition==0? (
-              <div className="space-y-2">
-                <p className="text-green-600 font-medium">
-                  Your table is ready! Please proceed to Table {assignedTable}.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  A staff member will assist you shortly.
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                You will be notified when your table is ready.
-              </p>
-            )}
-          </div>
+        <CardContent>
+          <p>Please check-in first or verify your mobile number.</p>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
-          <Link href="/" className="w-full">
-            <Button variant="outline" className="w-full">
-              Return to Home
-            </Button>
+          <Link href="/check-in" className="w-full">
+            <Button className="w-full">Go to Check-in</Button>
           </Link>
         </CardFooter>
       </Card>
