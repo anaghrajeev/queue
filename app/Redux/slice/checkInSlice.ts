@@ -1,6 +1,7 @@
+
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import supabase from "@/app/supabase/supabase";
-
+import { RealtimeChannel } from "@supabase/supabase-js";
 interface CheckInState {
   id?: number;
   numberOfPeople: number;
@@ -84,24 +85,48 @@ export const addCheckInToSupabase = createAsyncThunk(
 // Update Check-In Position
 export const updateCheckInPosition = createAsyncThunk(
   "checkIn/updatePosition",
-  async ({ id, queuePosition }: { id?: number, queuePosition: number }, { rejectWithValue }) => {
+  async ({ id, queuePosition }: { id?: number, queuePosition: number }, { getState, rejectWithValue }) => {
     try {
       if (!id) throw new Error("Check-in ID is required");
-      
-      const { data, error } = await supabase
-        .from("check_ins")
-        .update({ queuePosition })
-        .eq("id", id)
-        .select();
-      
-      if (error) throw error;
-      
-      return data[0] as CheckInState;
+
+      const state = getState() as { checkIn: CheckInListState };
+      const currentCheckIns = state.checkIn.checkIns;
+
+      // Update the position of the specified check-in
+      const updatedCheckIns = currentCheckIns.map(checkIn => {
+        if (checkIn.id === id) {
+          return { ...checkIn, queuePosition };
+        }
+        return checkIn;
+      });
+
+      // Reorder the queue positions
+      const reorderedCheckIns = reorderQueuePositions(updatedCheckIns);
+
+      // Update the positions in Supabase
+      const updates = reorderedCheckIns.map(checkIn => {
+        return supabase
+          .from("check_ins")
+          .update({ queuePosition: checkIn.queuePosition })
+          .eq("id", checkIn.id)
+          .select();
+      });
+
+      await Promise.all(updates);
+
+      return reorderedCheckIns;
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
   }
 );
+
+// Helper function to reorder queue positions
+const reorderQueuePositions = (checkIns: CheckInState[]): CheckInState[] => {
+  return checkIns
+    .sort((a, b) => a.queuePosition - b.queuePosition)
+    .map((checkIn, index) => ({ ...checkIn, queuePosition: index + 1 }));
+};
 
 // Update Check-In Status
 export const updateCheckInStatus = createAsyncThunk(
@@ -132,6 +157,62 @@ export const updateCheckInStatus = createAsyncThunk(
     }
   }
 );
+
+// Delete Check-In from Supabase
+export const deleteCheckIn = createAsyncThunk(
+  "checkIn/deleteCheckIn",
+  async (id: number, { getState, rejectWithValue }) => {
+    try {
+      const { data, error } = await supabase
+        .from("check_ins")
+        .delete()
+        .eq("id", id)
+        .select();
+      
+      if (error) throw error;
+
+      const state = getState() as { checkIn: CheckInListState };
+      const currentCheckIns = state.checkIn.checkIns.filter(checkIn => checkIn.id !== id);
+
+      // Reorder the queue positions
+      const reorderedCheckIns = reorderQueuePositions(currentCheckIns);
+
+      // Update the positions in Supabase
+      const updates = reorderedCheckIns.map(checkIn => {
+        return supabase
+          .from("check_ins")
+          .update({ queuePosition: checkIn.queuePosition })
+          .eq("id", checkIn.id)
+          .select();
+      });
+
+      await Promise.all(updates);
+
+      return id;
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Subscribe to real-time updates
+export const subscribeToCheckIns = createAsyncThunk(
+    "checkIn/subscribeToCheckIns",
+    async (_, { dispatch }) => {
+      const channel: RealtimeChannel = supabase
+        .channel("check_ins_realtime")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "check_ins" },
+          () => {
+            dispatch(fetchCheckIns());
+          }
+        )
+        .subscribe();
+  
+      return channel;
+    }
+  );
 
 const checkInSlice = createSlice({
   name: "checkIn",
@@ -172,19 +253,23 @@ const checkInSlice = createSlice({
       })
       
       // Update position
-      .addCase(updateCheckInPosition.fulfilled, (state, action: PayloadAction<CheckInState>) => {
-        const index = state.checkIns.findIndex(checkIn => checkIn.id === action.payload.id);
-        if (index !== -1) {
-          state.checkIns[index] = action.payload;
-        }
+      .addCase(updateCheckInPosition.fulfilled, (state, action: PayloadAction<CheckInState[]>) => {
+        state.checkIns = action.payload;
       })
       
       // Update status
       .addCase(updateCheckInStatus.fulfilled, (state, action: PayloadAction<CheckInState>) => {
-        const index = state.checkIns.findIndex(checkIn => checkIn.id === action.payload.id);
-        if (index !== -1) {
-          state.checkIns[index] = action.payload;
+        if (action.payload) {
+          const index = state.checkIns.findIndex(checkIn => checkIn.id === action.payload.id);
+          if (index !== -1) {
+            state.checkIns[index] = action.payload;
+          }
         }
+      })
+      
+      // Delete check-in
+      .addCase(deleteCheckIn.fulfilled, (state, action: PayloadAction<number>) => {
+        state.checkIns = state.checkIns.filter(checkIn => checkIn.id !== action.payload);
       });
   },
 });

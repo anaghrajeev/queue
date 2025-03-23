@@ -109,32 +109,7 @@ export default function CheckInPage() {
           </CardFooter>
         </form>
 
-        {/* Display the check-in list */}
-        <CardContent>
-          <h2 className="text-lg font-semibold mb-3">Check-In List</h2>
-          {checkIns.length === 0 ? (
-            <p>No check-ins yet.</p>
-          ) : (
-            <ul className="mt-2 space-y-2">
-              {checkIns.map((checkIn, index) => (
-                <li key={index} className="border p-3 rounded-md">
-                  <div className="bg-primary text-primary-foreground inline-block px-2 py-1 rounded mb-2">
-                    Queue Position: {checkIn.queuePosition}
-                  </div>
-                  <p><strong>Group Size:</strong> {checkIn.numberOfPeople}</p>
-                  <p><strong>Mobile:</strong> {checkIn.mobileNumber}</p>
-                  <p><strong>Has Seniors:</strong> {checkIn.hasSeniors ? "Yes" : "No"}</p>
-                  {checkIn.hasSeniors && <p><strong>Senior Count:</strong> {checkIn.seniorCount}</p>}
-                  <div className="mt-2">
-                    <Link href={`/waiting-status?mobile=${encodeURIComponent(checkIn.mobileNumber)}`}>
-                      <Button variant="outline" size="sm">View Status</Button>
-                    </Link>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
+      
       </Card>
       
       {/* Success Dialog */}

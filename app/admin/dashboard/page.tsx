@@ -67,7 +67,7 @@ function AdminDashboardPage() {
     e.preventDefault();
     
     // Validate table number is unique
-    if (tables.some(table => table.tableNumber === newTable.tableNumber)) {
+    if (tables.some((table: TableState) => table.tableNumber === newTable.tableNumber)) {
       toast({
         title: "Error",
         description: "Table number already exists",

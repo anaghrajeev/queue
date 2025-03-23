@@ -5,12 +5,13 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle2, Clock, AlertCircle } from 'lucide-react'
+import { CheckCircle2, Clock, AlertCircle, Router } from 'lucide-react'
 import { Provider, useDispatch, useSelector } from "react-redux"
 import { RootState } from "../Redux/store/store"
-import { fetchCheckIns } from "../Redux/slice/checkInSlice"
+import { fetchCheckIns,deleteCheckIn, subscribeToCheckIns } from "../Redux/slice/checkInSlice"
 import { useSearchParams } from "next/navigation"
 import store from "../Redux/store/store"
+import { useRouter } from "next/navigation"
 const WaitingPage =()=>{
   return (
     <Provider store={store}>
@@ -25,12 +26,24 @@ function WaitingStatusPage() {
   const [error, setError] = useState<string | null>(null)
   const [isCancelled, setIsCancelled] = useState(false)
   const [currentCheckIn, setCurrentCheckIn] = useState<any>(null)
-  
+  const router = useRouter()
   const dispatch = useDispatch()
   const checkIns = useSelector((state: RootState) => state.checkIn.checkIns)
   const searchParams = useSearchParams()
   const mobileNumber = searchParams.get('mobile')
+    // Request notification permission
+    const requestNotificationPermission = async () => {
+      if (Notification.permission !== "granted") {
+        await Notification.requestPermission()
+      }
+    }
   
+    // Show notification
+    const showNotification = (title: string, options?: NotificationOptions) => {
+      if (Notification.permission === "granted") {
+        new Notification(title, options)
+      }
+    }
   // Calculate wait time - roughly 15 mins per group ahead in queue
   const calculateWaitTime = (position: number) => {
     const groupsAhead = position - 1
@@ -51,6 +64,8 @@ function WaitingStatusPage() {
   }
 
   useEffect(() => {
+    requestNotificationPermission()
+
     const fetchData = async () => {
       try {
         setLoading(true)
@@ -61,10 +76,11 @@ function WaitingStatusPage() {
         setLoading(false)
       }
     }
-    
+
     fetchData()
+    dispatch(subscribeToCheckIns() as any)
   }, [dispatch])
-  
+
   useEffect(() => {
     if (!loading && checkIns.length > 0 && mobileNumber) {
       const foundCheckIn = checkIns.find(
@@ -73,6 +89,17 @@ function WaitingStatusPage() {
       
       if (foundCheckIn) {
         setCurrentCheckIn(foundCheckIn)
+        if (foundCheckIn.status === "seated") {
+
+          showNotification("Your group has been seated", {
+            body: "Enjoy your meal!",
+            icon: "/path/to/icon.png"
+          })
+          if (foundCheckIn.id !== undefined) {
+            dispatch(deleteCheckIn(foundCheckIn.id) as any)
+          }
+          router.push("/seated")
+        }
       } else {
         setError("No check-in found with this mobile number")
       }
@@ -82,6 +109,13 @@ function WaitingStatusPage() {
       setError("Mobile number not provided")
     }
   }, [checkIns, loading, mobileNumber])
+  const handleCancelCheckIn = () => {
+    if (currentCheckIn && currentCheckIn.id) {
+      dispatch(deleteCheckIn(currentCheckIn.id) as any);
+      setIsCancelled(true);
+      router.push("/");
+    }
+  };
 
   if (loading) {
     return (
@@ -112,7 +146,7 @@ function WaitingStatusPage() {
     )
   }
 
-  if (isCancelled) {
+  if (currentCheckIn && currentCheckIn.status === "cancelled" ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted p-4">
         <Card className="w-full max-w-md">
@@ -139,7 +173,33 @@ function WaitingStatusPage() {
       </div>
     )
   }
-
+  if (currentCheckIn && currentCheckIn.status === "seated") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold">Waiting Status</CardTitle>
+            <CardDescription>Your group has been seated</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="rounded-lg bg-success/10 p-4">
+              <h3 className="mb-2 font-semibold text-success">Seated</h3>
+              <p className="text-sm">
+                Your group has been seated. Enjoy your meal!
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-4">
+            <Link href="/" className="w-full">
+              <Button variant="outline" className="w-full">
+                Return to Home
+              </Button>
+            </Link>
+          </CardFooter>
+        </Card>
+      </div>
+    )
+  }
   // If we have a current check-in
   if (currentCheckIn) {
     const waitTime = calculateWaitTime(currentCheckIn.queuePosition)
@@ -193,7 +253,7 @@ function WaitingStatusPage() {
             <Button 
               variant="destructive" 
               className="w-full mb-2"
-              onClick={() => setIsCancelled(true)}
+              onClick={handleCancelCheckIn}
             >
               Cancel Check-in
             </Button>

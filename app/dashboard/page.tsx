@@ -20,8 +20,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Toast } from "@/components/ui/toast"
-import { fetchTables, updateTable, TableState, TableStatus } from "../Redux/slice/tableSlice"
-import { fetchCheckIns, clearCheckIns,updateCheckInPosition,updateCheckInStatus } from "../Redux/slice/checkInSlice"
+import { fetchTables, updateTable, TableState, TableStatus, } from "../Redux/slice/tableSlice"
+import { fetchCheckIns, clearCheckIns,updateCheckInPosition,updateCheckInStatus, deleteCheckIn } from "../Redux/slice/checkInSlice"
 
 // Extend the CheckInState to include an id field for management
 interface CheckInState {
@@ -59,7 +59,8 @@ export default function Dashboard() {
   const [toast, setToast] = useState({ show: false, message: "", type: "success" })
   const [selectedCheckIn, setSelectedCheckIn] = useState<CheckInState | null>(null)
   const [showSeatDialog, setShowSeatDialog] = useState(false)
-
+  const [tableToDelete, setTableToDelete] = useState<number | null>(null);
+  
   // Fetch tables and check-ins on component mount
   useEffect(() => {
     dispatch(fetchTables() as any)
@@ -122,11 +123,7 @@ export default function Dashboard() {
             cleaningTime: null,
           }) as any
         )
-        setToast({
-          show: true,
-          message: `Table ${table.tableNumber} is now free`,
-          type: "success",
-        })
+       
       }, 60000) // 1 minute
     }
     
@@ -137,11 +134,7 @@ export default function Dashboard() {
     }
     
     dispatch(updateTable(updatedTable) as any)
-    setToast({
-      show: true,
-      message: `Table ${table.tableNumber} is now ${newStatus}`,
-      type: "success",
-    })
+    
   }
 
   // Set wait time for a table
@@ -155,11 +148,7 @@ export default function Dashboard() {
     
     dispatch(updateTable(updatedTable) as any)
     setShowWaitTimeDialog(false)
-    setToast({
-      show: true,
-      message: `Wait time for Table ${selectedTable.tableNumber} set to ${customWaitTime} minutes`,
-      type: "success",
-    })
+    
   }
 
   // Move check-in up in queue
@@ -215,11 +204,7 @@ export default function Dashboard() {
       }) as any
     )
     
-    setToast({
-      show: true,
-      message: `Group #${checkIn.queuePosition} has been removed from the queue`,
-      type: "success",
-    })
+  
   }
 
   // Open seat dialog
@@ -254,17 +239,14 @@ export default function Dashboard() {
         engagedTime: new Date().toISOString(),
       }) as any
     )
-    
     setShowSeatDialog(false)
-    setToast({
-      show: true,
-      message: `Group #${selectedCheckIn.queuePosition} has been seated at Table ${table.tableNumber}`,
-      type: "success",
-    })
+   
   }
 
+ 
   // Filter suitable tables for a group
   const getSuitableTables = (groupSize: number) => {
+
     return availableTables.filter((table: TableState) => table.capacity >= groupSize)
   }
 
