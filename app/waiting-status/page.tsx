@@ -96,9 +96,10 @@ function WaitingStatusPage() {
             icon: "/path/to/icon.png"
           })
           if (foundCheckIn.id !== undefined) {
-            dispatch(deleteCheckIn(foundCheckIn.id) as any)
+            dispatch(deleteCheckIn(foundCheckIn.id) as any).then(()=>{
+              router.push("/seated")
+            })
           }
-          router.push("/seated")
         }
       } else {
         setError("No check-in found with this mobile number")

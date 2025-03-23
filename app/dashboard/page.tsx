@@ -20,8 +20,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Toast } from "@/components/ui/toast"
-import { fetchTables, updateTable, TableState, TableStatus, } from "../Redux/slice/tableSlice"
-import { fetchCheckIns, clearCheckIns,updateCheckInPosition,updateCheckInStatus, deleteCheckIn } from "../Redux/slice/checkInSlice"
+import { fetchTables, updateTable, TableState, TableStatus,subscribeToTables } from "../Redux/slice/tableSlice"
+import { fetchCheckIns, clearCheckIns,updateCheckInPosition,updateCheckInStatus, deleteCheckIn,subscribeToCheckIns } from "../Redux/slice/checkInSlice"
 
 // Extend the CheckInState to include an id field for management
 interface CheckInState {
@@ -63,8 +63,11 @@ export default function Dashboard() {
   
   // Fetch tables and check-ins on component mount
   useEffect(() => {
+    
     dispatch(fetchTables() as any)
     dispatch(fetchCheckIns() as any)
+    dispatch(subscribeToTables() as any)
+    dispatch(subscribeToCheckIns() as any)
   }, [dispatch])
 
   // Filter active waiting check-ins

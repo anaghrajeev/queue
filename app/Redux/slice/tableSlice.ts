@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import supabase from "@/app/supabase/supabase";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 export enum TableStatus {
   engaged = "engaged",
@@ -110,6 +111,25 @@ export const deleteTable = createAsyncThunk(
   }
 );
 
+// Subscribe to real-time updates
+
+export const subscribeToTables = createAsyncThunk(
+    "tables/subscribeToTables",
+    async (_, { dispatch }) => {
+      const channel: RealtimeChannel = supabase
+        .channel("check_ins_realtime")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "tables" },
+          () => {
+            dispatch(fetchTables());
+          }
+        )
+        .subscribe();
+  
+      return channel;
+    }
+  );
 const tableSlice = createSlice({
   name: 'tables',
   initialState,

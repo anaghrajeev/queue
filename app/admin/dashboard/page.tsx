@@ -20,6 +20,7 @@ import {
   addTable, 
   updateTable, 
   deleteTable 
+  ,subscribeToTables
 } from "../../Redux/slice/tableSlice";
 import { AppDispatch, RootState } from "../../Redux/store/store";
 import store from "../../Redux/store/store";
@@ -51,6 +52,7 @@ function AdminDashboardPage() {
 
   useEffect(() => {
     dispatch(fetchTables());
+    dispatch(subscribeToTables());
   }, [dispatch]);
 
   useEffect(() => {
