@@ -104,10 +104,7 @@ function AdminDashboardPage() {
       setIsEditing(false);
       setEditingTable(null);
       
-      toast({
-        title: "Success",
-        description: "Table updated successfully",
-      });
+  
     }
   };
 
@@ -125,10 +122,7 @@ function AdminDashboardPage() {
       await dispatch(deleteTable(tableToDelete));
       setTableToDelete(null);
       
-      toast({
-        title: "Success",
-        description: "Table deleted successfully",
-      });
+     
     }
   };
 

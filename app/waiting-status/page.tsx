@@ -32,18 +32,18 @@ function WaitingStatusPage() {
   const searchParams = useSearchParams()
   const mobileNumber = searchParams.get('mobile')
     // Request notification permission
-    const requestNotificationPermission = async () => {
-      if (Notification.permission !== "granted") {
-        await Notification.requestPermission()
-      }
-    }
+    // const requestNotificationPermission = async () => {
+    //   if (Notification.permission !== "granted") {
+    //     await Notification.requestPermission()
+    //   }
+    // }
   
-    // Show notification
-    const showNotification = (title: string, options?: NotificationOptions) => {
-      if (Notification.permission === "granted") {
-        new Notification(title, options)
-      }
-    }
+    // // Show notification
+    // const showNotification = (title: string, options?: NotificationOptions) => {
+    //   if (Notification.permission === "granted") {
+    //     new Notification(title, options)
+    //   }
+    // }
   // Calculate wait time - roughly 15 mins per group ahead in queue
   const calculateWaitTime = (position: number) => {
     const groupsAhead = position - 1
@@ -59,12 +59,16 @@ function WaitingStatusPage() {
   
   // Format the check-in time
   const formatTime = (timestamp: string | undefined) => {
-    if (!timestamp) return "--"
-    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+    return  new Date().toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
   }
 
   useEffect(() => {
-    requestNotificationPermission()
+   // requestNotificationPermission()
 
     const fetchData = async () => {
       try {
@@ -90,11 +94,10 @@ function WaitingStatusPage() {
       if (foundCheckIn) {
         setCurrentCheckIn(foundCheckIn)
         if (foundCheckIn.status === "seated") {
-
-          showNotification("Your group has been seated", {
-            body: "Enjoy your meal!",
-            icon: "/path/to/icon.png"
-          })
+          // showNotification("Your group has been seated", {
+          //   body: "Enjoy your meal!",
+          //   icon: "/path/to/icon.png"
+          // })
           if (foundCheckIn.id !== undefined) {
             dispatch(deleteCheckIn(foundCheckIn.id) as any).then(()=>{
               router.push("/seated")
@@ -174,33 +177,33 @@ function WaitingStatusPage() {
       </div>
     )
   }
-  if (currentCheckIn && currentCheckIn.status === "seated") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-muted p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold">Waiting Status</CardTitle>
-            <CardDescription>Your group has been seated</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="rounded-lg bg-success/10 p-4">
-              <h3 className="mb-2 font-semibold text-success">Seated</h3>
-              <p className="text-sm">
-                Your group has been seated. Enjoy your meal!
-              </p>
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Link href="/" className="w-full">
-              <Button variant="outline" className="w-full">
-                Return to Home
-              </Button>
-            </Link>
-          </CardFooter>
-        </Card>
-      </div>
-    )
-  }
+  // if (currentCheckIn && currentCheckIn.status === "seated") {
+  //   return (
+  //     <div className="flex min-h-screen items-center justify-center bg-muted p-4">
+  //       <Card className="w-full max-w-md">
+  //         <CardHeader className="space-y-1">
+  //           <CardTitle className="text-2xl font-bold">Waiting Status</CardTitle>
+  //           <CardDescription>Your group has been seated</CardDescription>
+  //         </CardHeader>
+  //         <CardContent className="space-y-6">
+  //           <div className="rounded-lg bg-success/10 p-4">
+  //             <h3 className="mb-2 font-semibold text-success">Seated</h3>
+  //             <p className="text-sm">
+  //               Your group has been seated. Enjoy your meal!
+  //             </p>
+  //           </div>
+  //         </CardContent>
+  //         <CardFooter className="flex flex-col space-y-4">
+  //           <Link href="/" className="w-full">
+  //             <Button variant="outline" className="w-full">
+  //               Return to Home
+  //             </Button>
+  //           </Link>
+  //         </CardFooter>
+  //       </Card>
+  //     </div>
+  //   )
+  // }
   // If we have a current check-in
   if (currentCheckIn) {
     const waitTime = calculateWaitTime(currentCheckIn.queuePosition)

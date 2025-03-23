@@ -26,7 +26,11 @@ export default function CheckInPage() {
   const checkIns = useSelector((state: RootState) => state.checkIn.checkIns);
   const router = useRouter();
   const [newCheckInMobile, setNewCheckInMobile] = useState("");
-  const isoTimestamp = new Date().toISOString(); 
+  const isoTimestamp =  new Date().toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   
   const handleInputs = (e: React.FormEvent) => {
@@ -50,7 +54,7 @@ export default function CheckInPage() {
       queuePosition: 0,
       status:"waiting",
       assignedTableId:0,
-      seatedTime:isoTimestamp // This will be set in the thunk    };
+      seatedTime:isoTimestamp.toString() // This will be set in the thunk    };
     };  
 
     dispatch(addCheckInToSupabase(checkInData) as any);

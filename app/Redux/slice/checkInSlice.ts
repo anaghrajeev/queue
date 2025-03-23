@@ -1,7 +1,7 @@
-
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import supabase from "@/app/supabase/supabase";
 import { RealtimeChannel } from "@supabase/supabase-js";
+
 interface CheckInState {
   id?: number;
   numberOfPeople: number;
@@ -50,24 +50,20 @@ export const addCheckInToSupabase = createAsyncThunk(
   "checkIn/addCheckIn",
   async (newCheckIn: Omit<CheckInState, "id" | "queuePosition" | "status">, { getState, rejectWithValue }) => {
     try {
-      // Get the current state to determine the next queue position
       const state = getState() as { checkIn: CheckInListState };
       const currentCheckIns = state.checkIn.checkIns;
       
-      // Find the highest queue position
       let maxPosition = 0;
       if (currentCheckIns.length > 0) {
         maxPosition = Math.max(...currentCheckIns.map(checkin => checkin.queuePosition || 0));
       }
       
-      // Assign the next queue position and default status
       const checkInWithPosition = {
         ...newCheckIn,
         queuePosition: maxPosition + 1,
         status: "waiting" as const
       };
       
-      // Insert into Supabase
       const { data, error } = await supabase
         .from("check_ins")
         .insert([checkInWithPosition])
@@ -89,44 +85,46 @@ export const updateCheckInPosition = createAsyncThunk(
     try {
       if (!id) throw new Error("Check-in ID is required");
 
-      const state = getState() as { checkIn: CheckInListState };
-      const currentCheckIns = state.checkIn.checkIns;
+      // First, update the specific check-in's position
+      const { error: updateError } = await supabase
+        .from("check_ins")
+        .update({ queuePosition })
+        .eq("id", id);
 
-      // Update the position of the specified check-in
-      const updatedCheckIns = currentCheckIns.map(checkIn => {
-        if (checkIn.id === id) {
-          return { ...checkIn, queuePosition };
-        }
-        return checkIn;
-      });
+      if (updateError) throw updateError;
 
-      // Reorder the queue positions
-      const reorderedCheckIns = reorderQueuePositions(updatedCheckIns);
+      // Fetch all check-ins to ensure we have the latest data
+      const { data: allCheckIns, error: fetchError } = await supabase
+        .from("check_ins")
+        .select("*")
+        .order('queuePosition', { ascending: true });
 
-      // Update the positions in Supabase
-      const updates = reorderedCheckIns.map(checkIn => {
-        return supabase
+      if (fetchError) throw fetchError;
+
+      // Reorder all positions to ensure consistency
+      const reorderedCheckIns = allCheckIns
+        .sort((a, b) => a.queuePosition - b.queuePosition)
+        .map((checkIn, index) => ({
+          ...checkIn,
+          queuePosition: index + 1
+        }));
+
+      // Update all positions in the database
+      const updates = reorderedCheckIns.map(checkIn => 
+        supabase
           .from("check_ins")
           .update({ queuePosition: checkIn.queuePosition })
           .eq("id", checkIn.id)
-          .select();
-      });
+      );
 
       await Promise.all(updates);
 
-      return reorderedCheckIns;
+      return reorderedCheckIns as CheckInState[];
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
   }
 );
-
-// Helper function to reorder queue positions
-const reorderQueuePositions = (checkIns: CheckInState[]): CheckInState[] => {
-  return checkIns
-    .sort((a, b) => a.queuePosition - b.queuePosition)
-    .map((checkIn, index) => ({ ...checkIn, queuePosition: index + 1 }));
-};
 
 // Update Check-In Status
 export const updateCheckInStatus = createAsyncThunk(
@@ -161,30 +159,38 @@ export const updateCheckInStatus = createAsyncThunk(
 // Delete Check-In from Supabase
 export const deleteCheckIn = createAsyncThunk(
   "checkIn/deleteCheckIn",
-  async (id: number, { getState, rejectWithValue }) => {
+  async (id: number, { rejectWithValue }) => {
     try {
-      const { data, error } = await supabase
+      // First delete the check-in
+      const { error: deleteError } = await supabase
         .from("check_ins")
         .delete()
-        .eq("id", id)
-        .select();
+        .eq("id", id);
       
-      if (error) throw error;
+      if (deleteError) throw deleteError;
 
-      const state = getState() as { checkIn: CheckInListState };
-      const currentCheckIns = state.checkIn.checkIns.filter(checkIn => checkIn.id !== id);
+      // Fetch remaining check-ins
+      const { data: remainingCheckIns, error: fetchError } = await supabase
+        .from("check_ins")
+        .select("*")
+        .order('queuePosition', { ascending: true });
 
-      // Reorder the queue positions
-      const reorderedCheckIns = reorderQueuePositions(currentCheckIns);
+      if (fetchError) throw fetchError;
 
-      // Update the positions in Supabase
-      const updates = reorderedCheckIns.map(checkIn => {
-        return supabase
+      // Reorder remaining check-ins
+      const reorderedCheckIns = remainingCheckIns
+        .map((checkIn, index) => ({
+          ...checkIn,
+          queuePosition: index + 1
+        }));
+
+      // Update all positions
+      const updates = reorderedCheckIns.map(checkIn =>
+        supabase
           .from("check_ins")
           .update({ queuePosition: checkIn.queuePosition })
           .eq("id", checkIn.id)
-          .select();
-      });
+      );
 
       await Promise.all(updates);
 
@@ -197,22 +203,22 @@ export const deleteCheckIn = createAsyncThunk(
 
 // Subscribe to real-time updates
 export const subscribeToCheckIns = createAsyncThunk(
-    "checkIn/subscribeToCheckIns",
-    async (_, { dispatch }) => {
-      const channel: RealtimeChannel = supabase
-        .channel("check_ins_realtime")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "check_ins" },
-          () => {
-            dispatch(fetchCheckIns());
-          }
-        )
-        .subscribe();
-  
-      return channel;
-    }
-  );
+  "checkIn/subscribeToCheckIns",
+  async (_, { dispatch }) => {
+    const channel: RealtimeChannel = supabase
+      .channel("check_ins_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "check_ins" },
+        () => {
+          dispatch(fetchCheckIns());
+        }
+      )
+      .subscribe();
+
+    return channel;
+  }
+);
 
 const checkInSlice = createSlice({
   name: "checkIn",
@@ -224,7 +230,6 @@ const checkInSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Fetch check-ins
       .addCase(fetchCheckIns.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -237,8 +242,6 @@ const checkInSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       })
-      
-      // Add check-in
       .addCase(addCheckInToSupabase.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -251,23 +254,15 @@ const checkInSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       })
-      
-      // Update position
       .addCase(updateCheckInPosition.fulfilled, (state, action: PayloadAction<CheckInState[]>) => {
         state.checkIns = action.payload;
       })
-      
-      // Update status
       .addCase(updateCheckInStatus.fulfilled, (state, action: PayloadAction<CheckInState>) => {
-        if (action.payload) {
-          const index = state.checkIns.findIndex(checkIn => checkIn.id === action.payload.id);
-          if (index !== -1) {
-            state.checkIns[index] = action.payload;
-          }
+        const index = state.checkIns.findIndex(checkIn => checkIn.id === action.payload.id);
+        if (index !== -1) {
+          state.checkIns[index] = action.payload;
         }
       })
-      
-      // Delete check-in
       .addCase(deleteCheckIn.fulfilled, (state, action: PayloadAction<number>) => {
         state.checkIns = state.checkIns.filter(checkIn => checkIn.id !== action.payload);
       });

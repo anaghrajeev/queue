@@ -10,13 +10,26 @@ import { Label } from "@/components/ui/label"
 import React from "react"
 
 export default function LoginPage() {
-  const handleLogin = (e:React.FormEvent) => {
-    e.preventDefault()
-    const form = e.target as HTMLFormElement
-    const username = form.username.value
-    const password = form.password.value
-    
-  }
+  const router = useRouter();
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const username = form.username.value;
+    const password = form.password.value;
+
+    // Hardcoded credentials for simplicity
+    const adminCredentials = { username: "admin", password: "admin123" };
+    const waiterCredentials = { username: "waiter", password: "waiter123" };
+
+    if (username === adminCredentials.username && password === adminCredentials.password) {
+      router.push("/admin/dashboard");
+    } else if (username === waiterCredentials.username && password === waiterCredentials.password) {
+      router.push("/dashboard");
+    } else {
+      alert("Invalid credentials");
+    }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted p-4">
@@ -28,12 +41,12 @@ export default function LoginPage() {
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username </Label>
-              <Input id="username" type="text" placeholder="Enter your username" required />
+              <Label htmlFor="username">Username</Label>
+              <Input id="username" name="username" type="text" placeholder="Enter your username" required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="Enter your password" required />
+              <Input id="password" name="password" type="password" placeholder="Enter your password" required />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
@@ -47,5 +60,5 @@ export default function LoginPage() {
         </form>
       </Card>
     </div>
-  )
+  );
 }

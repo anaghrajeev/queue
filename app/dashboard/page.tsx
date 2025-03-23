@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Toast } from "@/components/ui/toast"
-import { fetchTables, updateTable, TableState, TableStatus,subscribeToTables } from "../Redux/slice/tableSlice"
+import { fetchTables, updateTable, TableState, TableStatus,subscribeToTables, } from "../Redux/slice/tableSlice"
 import { fetchCheckIns, clearCheckIns,updateCheckInPosition,updateCheckInStatus, deleteCheckIn,subscribeToCheckIns } from "../Redux/slice/checkInSlice"
 
 // Extend the CheckInState to include an id field for management
@@ -99,11 +99,27 @@ export default function Dashboard() {
     
     const occupiedTime = new Date(occupiedAt).getTime()
     const currentTime = new Date().getTime()
-    const elapsed = Math.floor((currentTime - occupiedTime) / (1000 * 60))
+    const elapsedMinutes = Math.floor((currentTime - occupiedTime) / (1000 * 60))
     
-    return `${elapsed} min`
+    // Format as hours and minutes if more than 60 minutes
+    if (elapsedMinutes >= 60) {
+      const hours = Math.floor(elapsedMinutes / 60)
+      const minutes = elapsedMinutes % 60
+      return `${hours}h ${minutes}m`
+    }
+    
+    return `${elapsedMinutes}m`
   }
-
+  
+  // Format time in 12-hour format with AM/PM
+  const formatTime = (timestamp: string = "" ) => {
+    const [hours, minutes] = timestamp.split(":"); // Extract hours and minutes
+    return new Date(0, 0, 0, parseInt(hours), parseInt(minutes)).toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
   // Set table status
   const changeTableStatus = (table: TableState, newStatus: TableStatus) => {
     const updatedTable = { ...table, status: newStatus }
@@ -200,15 +216,19 @@ export default function Dashboard() {
 
   // Remove check-in from queue
   const removeCheckIn = (checkIn: CheckInState) => {
+
     dispatch(
       updateCheckInStatus({
         id: checkIn.id,
         status: "cancelled",
       }) as any
     )
-    
-  
-  }
+
+    //dispatch delete
+    dispatch(
+      deleteCheckIn(checkIn.id as number) as any
+    )
+}
 
   // Open seat dialog
   const openSeatDialog = (checkIn: CheckInState) => {
@@ -356,7 +376,7 @@ export default function Dashboard() {
                                 </div>
                                 {table.engagedTime && (
                                   <div className="text-sm text-muted-foreground">
-                                    Estimated wait: {table.engagedTime} minutes
+                                    Estimated wait: {formatTime(table.engagedTime)} minutes
                                   </div>
                                 )}
                               </div>
@@ -438,8 +458,9 @@ export default function Dashboard() {
                                   </p>
                                   <p className="text-sm text-muted-foreground">Mobile: {group.mobileNumber}</p>
                                   <p className="text-sm text-muted-foreground">
-                                    Waiting since: {new Date(group.seatedTime || Date.now()).toLocaleTimeString()}
+                                    Waiting since: {formatTime(group.seatedTime ?? "")}
                                   </p>
+                                  <p className="text-sm text-muted-foreground">Senior Count:{group.seniorCount}</p>
                                 </div>
                                 <div className="flex flex-col gap-2">
                                   <div className="flex gap-2">
@@ -528,13 +549,13 @@ export default function Dashboard() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="max-h-60 overflow-y-auto">
-              {getSuitableTables(selectedCheckIn?.numberOfPeople || 0).length === 0 ? (
+              {getSuitableTables(selectedCheckIn?.numberOfPeople ?? 0).length === 0 ? (
                 <div className="rounded-lg border border-dashed p-4 text-center">
                   <p className="text-sm text-muted-foreground">No suitable tables available</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {getSuitableTables(selectedCheckIn?.numberOfPeople || 0).map((table: TableState) => (
+                  {getSuitableTables(selectedCheckIn?.numberOfPeople ?? 0).map((table: TableState) => (
                     <Button
                       key={table.tableId}
                       variant="outline"
@@ -560,15 +581,7 @@ export default function Dashboard() {
       </Dialog>
 
       {/* Toast Notification */}
-      {toast.show && (
-        <Toast
-          className={`fixed bottom-4 right-4 ${
-            toast.type === "success" ? "bg-green-100" : "bg-red-100"
-          }`}
-        >
-          <div className="text-sm font-medium">{toast.message}</div>
-        </Toast>
-      )}
+   
     </div>
   )
 }
