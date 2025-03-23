@@ -128,33 +128,55 @@ export const updateCheckInPosition = createAsyncThunk(
 
 // Update Check-In Status
 export const updateCheckInStatus = createAsyncThunk(
-  "checkIn/updateStatus",
-  async (
-    { id, status, assignedTableId, seatedTime }: 
-    { id?: number, status: "waiting" | "seated" | "cancelled", assignedTableId?: number, seatedTime?: string }, 
-    { rejectWithValue }
-  ) => {
-    try {
-      if (!id) throw new Error("Check-in ID is required");
-      
-      const updateData: any = { status };
-      if (assignedTableId) updateData.assignedTableId = assignedTableId;
-      if (seatedTime) updateData.seatedTime = seatedTime;
-      
-      const { data, error } = await supabase
-        .from("check_ins")
-        .update(updateData)
-        .eq("id", id)
-        .select();
-      
-      if (error) throw error;
-      
-      return data[0] as CheckInState;
-    } catch (error: any) {
-      return rejectWithValue(error.message);
+    "checkIn/updateStatus",
+    async (
+      { id, status, assignedTableId, seatedTime }: 
+      { id?: number, status: "waiting" | "seated" | "cancelled", assignedTableId?: number, seatedTime?: string }, 
+      { rejectWithValue, dispatch }
+    ) => {
+      try {
+        if (!id) throw new Error("Check-in ID is required")
+        
+        const updateData: any = { status }
+        if (assignedTableId) updateData.assignedTableId = assignedTableId
+        if (seatedTime) updateData.seatedTime = seatedTime
+        
+        const { data, error } = await supabase
+          .from("check_ins")
+          .update(updateData)
+          .eq("id", id)
+          .select()
+        
+        if (error) throw error
+  
+        // If the status is "seated", update queue positions for remaining waiting groups
+        if (status === "seated") {
+          const { data: waitingGroups } = await supabase
+            .from("check_ins")
+            .select("*")
+            .eq("status", "waiting")
+            .order("queuePosition", { ascending: true })
+  
+          if (waitingGroups) {
+            // Update queue positions
+            const updates = waitingGroups.map((group, index) => 
+              supabase
+                .from("check_ins")
+                .update({ queuePosition: index + 1 })
+                .eq("id", group.id)
+            )
+            
+            await Promise.all(updates)
+          }
+        }
+        
+        return data[0] as CheckInState
+      } catch (error: any) {
+        return rejectWithValue(error.message)
+      }
     }
-  }
-);
+  )
+  
 
 // Delete Check-In from Supabase
 export const deleteCheckIn = createAsyncThunk(

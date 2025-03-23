@@ -126,12 +126,20 @@ export default function Dashboard() {
     
     // Set engaged time if status is engaged
     if (newStatus === TableStatus.engaged && table.status !== TableStatus.engaged) {
-      updatedTable.engagedTime = new Date().toISOString()
+      updatedTable.engagedTime = new Date().toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
     }
     
     // Set cleaning time if status is cleaning
     if (newStatus === TableStatus.cleaning && table.status !== TableStatus.cleaning) {
-      updatedTable.cleaningTime = new Date().toISOString()
+      updatedTable.cleaningTime =   new Date().toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
       
       // Set a timer to automatically change to free after 1 minute
       setTimeout(() => {
@@ -224,10 +232,8 @@ export default function Dashboard() {
       }) as any
     )
 
-    //dispatch delete
-    dispatch(
-      deleteCheckIn(checkIn.id as number) as any
-    )
+    
+    
 }
 
   // Open seat dialog
@@ -249,8 +255,11 @@ export default function Dashboard() {
       updateCheckInStatus({
         id: selectedCheckIn.id,
         status: "seated",
-        assignedTableId: tableId,
-        seatedTime: new Date().toISOString(),
+        seatedTime: new Date().toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
       }) as any
     )
     
@@ -259,7 +268,11 @@ export default function Dashboard() {
       updateTable({
         ...table,
         status: TableStatus.engaged,
-        engagedTime: new Date().toISOString(),
+        seatedTime: new Date().toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        }),
       }) as any
     )
     setShowSeatDialog(false)
@@ -359,11 +372,11 @@ export default function Dashboard() {
                             {table.status === TableStatus.engaged && (
                               <div className="mb-4 space-y-2">
                                 <div className="flex items-center justify-between text-sm">
-                                  <div className="flex items-center gap-2">
+                                  {/* <div className="flex items-center gap-2">
                                     <Clock className="h-4 w-4" />
                                     <span>Occupied for: {getTimeElapsed(table.engagedTime)}</span>
-                                  </div>
-                                  <Button
+                                  </div> */}
+                                  {/* <Button
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => {
@@ -372,13 +385,9 @@ export default function Dashboard() {
                                     }}
                                   >
                                     Set wait time
-                                  </Button>
+                                  </Button> */}
                                 </div>
-                                {table.engagedTime && (
-                                  <div className="text-sm text-muted-foreground">
-                                    Estimated wait: {formatTime(table.engagedTime)} minutes
-                                  </div>
-                                )}
+                              
                               </div>
                             )}
 

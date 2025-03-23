@@ -12,6 +12,8 @@ import { fetchCheckIns,deleteCheckIn, subscribeToCheckIns } from "../Redux/slice
 import { useSearchParams } from "next/navigation"
 import store from "../Redux/store/store"
 import { useRouter } from "next/navigation"
+import { Instagram, Star, ExternalLink } from "lucide-react";
+
 const WaitingPage =()=>{
   return (
     <Provider store={store}>
@@ -103,9 +105,18 @@ function WaitingStatusPage() {
               router.push("/seated")
             })
           }
+        }else if(foundCheckIn.status === "cancelled"){
+          if (foundCheckIn.id !== undefined) {
+            dispatch(deleteCheckIn(foundCheckIn.id) as any)
+            .then(()=>{
+              router.push("/cancelled")
+            })
+          }
         }
       } else {
-        setError("No check-in found with this mobile number")
+        setLoading(true)
+        
+        setLoading(false)
       }
     } else if (!loading && checkIns.length === 0) {
       setError("No check-ins available")
@@ -113,6 +124,8 @@ function WaitingStatusPage() {
       setError("Mobile number not provided")
     }
   }, [checkIns, loading, mobileNumber])
+
+
   const handleCancelCheckIn = () => {
     if (currentCheckIn && currentCheckIn.id) {
       dispatch(deleteCheckIn(currentCheckIn.id) as any);
@@ -150,33 +163,34 @@ function WaitingStatusPage() {
     )
   }
 
-  if (currentCheckIn && currentCheckIn.status === "cancelled" ) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-muted p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold">Waiting Status</CardTitle>
-            <CardDescription>Your reservation has been cancelled</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="rounded-lg bg-destructive/10 p-4">
-              <h3 className="mb-2 font-semibold text-destructive">Reservation Cancelled</h3>
-              <p className="text-sm">
-                Your reservation has been cancelled. Please check with the restaurant staff for more information.
-              </p>
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Link href="/" className="w-full">
-              <Button variant="outline" className="w-full">
-                Return to Home
-              </Button>
-            </Link>
-          </CardFooter>
-        </Card>
-      </div>
-    )
-  }
+  // if (currentCheckIn && currentCheckIn.status === "cancelled" ) {
+   
+  //   return (
+  //     <div className="flex min-h-screen items-center justify-center bg-muted p-4">
+  //       <Card className="w-full max-w-md">
+  //         <CardHeader className="space-y-1">
+  //           <CardTitle className="text-2xl font-bold">Waiting Status</CardTitle>
+  //           <CardDescription>Your reservation has been cancelled</CardDescription>
+  //         </CardHeader>
+  //         <CardContent className="space-y-6">
+  //           <div className="rounded-lg bg-destructive/10 p-4">
+  //             <h3 className="mb-2 font-semibold text-destructive">Reservation Cancelled</h3>
+  //             <p className="text-sm">
+  //               Your reservation has been cancelled. Please check with the restaurant staff for more information.
+  //             </p>
+  //           </div>
+  //         </CardContent>
+  //         <CardFooter className="flex flex-col space-y-4">
+  //           <Link href="/" className="w-full">
+  //             <Button variant="outline" className="w-full">
+  //               Return to Home
+  //             </Button>
+  //           </Link>
+  //         </CardFooter>
+  //       </Card>
+  //     </div>
+  //   )
+  // }
   // if (currentCheckIn && currentCheckIn.status === "seated") {
   //   return (
   //     <div className="flex min-h-screen items-center justify-center bg-muted p-4">
@@ -210,8 +224,17 @@ function WaitingStatusPage() {
     const progress = calculateProgress(currentCheckIn.queuePosition, checkIns.length)
     
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted p-4">
-        <Card className="w-full max-w-md">
+      <div className="flex min-h-screen items-center justify-center bg-muted p-4 ">
+        <Card className="w-full max-w-md border-2">
+        <div className="flex justify-center -mt-8 mb-2">
+          <div className="h-16 w-16 rounded-full bg-white shadow-md border-2 border-green-700 flex items-center justify-center">
+            <img 
+              src="./greenspoon.png" 
+              alt="Restaurant Logo"
+              className="w-full h-full object-cover rounded-full" 
+            />
+          </div>
+        </div>
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">Waiting Status</CardTitle>
             <CardDescription>
@@ -224,7 +247,7 @@ function WaitingStatusPage() {
                 <span className="text-sm font-medium">Estimated wait time</span>
                 <span className="text-sm font-medium">{waitTime} minutes</span>
               </div>
-              <Progress value={progress} className="h-2" />
+              <Progress value={progress} className="h-2 " />
             </div>
 
             <div className="rounded-lg bg-muted p-4">
@@ -254,6 +277,7 @@ function WaitingStatusPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
+          
             <Button 
               variant="destructive" 
               className="w-full mb-2"
@@ -266,6 +290,27 @@ function WaitingStatusPage() {
                 Return to Home
               </Button>
             </Link>
+            <div className="flex justify-center gap-6 my-4">
+              <a 
+                href="https://www.instagram.com/greenspoon_kochi?igsh=NWV5d3VsaDZybGN3" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex flex-col items-center text-black hover:text-green-700"
+              >
+                <Instagram size={24} />
+                <span className="text-xs mt-1">Follow Us</span>
+              </a>
+              
+              <a 
+                href="https://www.google.com/search?q=Green+Spoon,+Pure+Veg+Haven&sca_esv=6455b9a1373b2beb&hl=en-IN&prmd=imsvn&sxsrf=AHTn8zrI7pxHkR_EJGF6vLlzGv1wTBq31Q:1742760083274&si=APYL9bs7Hg2KMLB-4tSoTdxuOx8BdRvHbByC_AuVpNyh0x2KzROmwwNfmaeMWSZ7cGhrUhUFfL0SCAbTo202gkbbTFGFk_2879atiQ-AqgI2om2AqKuDqAU%3D&sa=X&ved=2ahUKEwivz8Sd_6CMAxUmsFYBHbpUEfoQ9qsLegQIFBAG&biw=411&bih=809&dpr=2.63" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex flex-col items-center text-black hover:text-green-700"
+              >
+                <Star size={24} />
+                <span className="text-xs mt-1">Review Us</span>
+              </a>
+            </div>
           </CardFooter>
         </Card>
       </div>
