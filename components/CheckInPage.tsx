@@ -32,7 +32,8 @@ export default function CheckInPage() {
     hour12: true,
   });
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  
+  const [hasSeniorsChecked, setHasSeniorsChecked] = useState(false);
+
   const handleInputs = (e: React.FormEvent) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
@@ -46,16 +47,16 @@ export default function CheckInPage() {
     }
     const mobileNumber = (form.elements.namedItem("mobileNumber") as HTMLInputElement).value;
     const checkInData = {
-      numberOfPeople: parseInt((form.elements.namedItem("groupSize") as HTMLInputElement).value),
-      mobileNumber: mobileNumber,
-      hasSeniors: (form.elements.namedItem("hasSeniors") as HTMLInputElement).checked,
-      seniorCount: parseInt((form.elements.namedItem("seniorCount") as HTMLInputElement).value) || 0,
-      isSubmitted: true,
-      queuePosition: 0,
-      status:"waiting",
-      assignedTableId:0,
-      seatedTime:isoTimestamp.toString() // This will be set in the thunk    };
-    };  
+        numberOfPeople: parseInt((form.elements.namedItem("groupSize") as HTMLInputElement).value),
+        mobileNumber: mobileNumberCheck,
+        hasSeniors: hasSeniorsChecked,
+        seniorCount: hasSeniorsChecked ? parseInt((form.elements.namedItem("seniorCount") as HTMLInputElement).value) || 0 : 0,
+        isSubmitted: true,
+        queuePosition: 0,
+        status: "waiting",
+        assignedTableId: 0,
+        seatedTime: isoTimestamp.toString(),
+      }; 
 
     dispatch(addCheckInToSupabase(checkInData) as any);
     
@@ -90,7 +91,7 @@ export default function CheckInPage() {
         <CardHeader className="space-y-1 text-center pb-2">
         <CardTitle className="text-2xl font-bold text-green-800">Green Spoon</CardTitle>
 
-          <CardDescription>Please provide your group details fro check-in</CardDescription>
+          <CardDescription>Please provide your group details for check-in</CardDescription>
         </CardHeader>
         <form onSubmit={handleInputs}>
           <CardContent className="space-y-4">
@@ -102,14 +103,24 @@ export default function CheckInPage() {
               <Label htmlFor="mobileNumber">Mobile Number</Label>
               <Input id="mobileNumber" name="mobileNumber" type="tel" placeholder="Enter your mobile number" required className="border-gray-300 focus:border-green-600" />
             </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="hasSeniors" name="hasSeniors" className="text-green-600" />
-              <Label htmlFor="hasSeniors">Are there any senior citizens in your group?</Label>
+            <div className="flex flex-col items-start space-x-2">
+                <div className="flex p-3 gap-3">
+              <Checkbox
+      id="hasSeniors"
+      name="hasSeniors"
+      checked={hasSeniorsChecked}
+      onCheckedChange={(checked) => setHasSeniorsChecked(checked === true)}
+    />
+      <Label htmlFor="hasSeniors">Are there any senior citizens in your group?</Label>
+      </div>
+    {hasSeniorsChecked && (
+      <div className="space-y-2 ">
+        <Label htmlFor="seniorCount">Number of senior citizens</Label>
+        <Input id="seniorCount" name="seniorCount" type="number" min="0" placeholder="Enter number of seniors" className="border-gray-300 focus:border-green-600" />
+      </div>
+    )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="seniorCount">Number of senior citizens</Label>
-              <Input id="seniorCount" name="seniorCount" type="number" min="0" placeholder="Enter number of seniors" className="border-gray-300 focus:border-green-600" />
-            </div>
+           
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full bg-green-700 hover:bg-green-800">Check In</Button>
