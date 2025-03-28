@@ -325,11 +325,11 @@ function WaitingStatusPage() {
             >
               Cancel Check-in
             </Button>
-            <Link href="/" className="w-full">
+            {/* <Link href="/" className="w-full">
               <Button variant="outline" className="w-full">
                 Return to Home
               </Button>
-            </Link>
+            </Link> */}
             <div className="flex justify-center gap-6 my-4">
               <a 
                 href="https://www.instagram.com/greenspoon_kochi?igsh=NWV5d3VsaDZybGN3" 
