@@ -191,9 +191,9 @@ function WaitingStatusPage() {
           <CardContent className="flex flex-col items-center justify-center p-8">
             <AlertCircle className="h-12 w-12 text-destructive mb-4" />
             <p className="text-lg font-medium">{error}</p>
-            <Link href="/" className="mt-4">
+            {/* <Link href="/" className="mt-4">
               <Button variant="outline">Return to Home</Button>
-            </Link>
+            </Link> */}
           </CardContent>
         </Card>
       </div>
