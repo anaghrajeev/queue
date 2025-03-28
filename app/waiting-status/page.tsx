@@ -5,16 +5,24 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle2, Clock, AlertCircle, Router } from 'lucide-react'
+import { Clock, AlertCircle } from "lucide-react"
 import { Provider, useDispatch, useSelector } from "react-redux"
-import { RootState } from "../Redux/store/store"
-import { fetchCheckIns,deleteCheckIn, subscribeToCheckIns } from "../Redux/slice/checkInSlice"
+import type { RootState } from "../Redux/store/store"
+import { fetchCheckIns, deleteCheckIn, subscribeToCheckIns } from "../Redux/slice/checkInSlice"
 import { useSearchParams } from "next/navigation"
 import store from "../Redux/store/store"
 import { useRouter } from "next/navigation"
-import { Instagram, Star, ExternalLink } from "lucide-react";
+import { Instagram, Star } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
-const WaitingPage =()=>{
+const WaitingPage = () => {
   return (
     <Provider store={store}>
       <WaitingStatusPage />
@@ -28,49 +36,49 @@ function WaitingStatusPage() {
   const [error, setError] = useState<string | null>(null)
   const [isCancelled, setIsCancelled] = useState(false)
   const [currentCheckIn, setCurrentCheckIn] = useState<any>(null)
+  const [showExitDialog, setShowExitDialog] = useState(false)
   const router = useRouter()
   const dispatch = useDispatch()
   const checkIns = useSelector((state: RootState) => state.checkIn.checkIns)
   const searchParams = useSearchParams()
-  const mobileNumber = searchParams.get('mobile')
-    // Request notification permission
-    // const requestNotificationPermission = async () => {
-    //   if (Notification.permission !== "granted") {
-    //     await Notification.requestPermission()
-    //   }
-    // }
-  
-    // // Show notification
-    // const showNotification = (title: string, options?: NotificationOptions) => {
-    //   if (Notification.permission === "granted") {
-    //     new Notification(title, options)
-    //   }
-    // }
+  const mobileNumber = searchParams.get("mobile")
+  // Request notification permission
+  // const requestNotificationPermission = async () => {
+  //   if (Notification.permission !== "granted") {
+  //     await Notification.requestPermission()
+  //   }
+  // }
+
+  // // Show notification
+  // const showNotification = (title: string, options?: NotificationOptions) => {
+  //   if (Notification.permission === "granted") {
+  //     new Notification(title, options)
+  //   }
+  // }
   // Calculate wait time - roughly 15 mins per group ahead in queue
   const calculateWaitTime = (position: number) => {
     const groupsAhead = position - 1
     return Math.max(5, groupsAhead * 15) // Minimum 5 minutes, 15 mins per group ahead
   }
-  
+
   // Calculate progress percentage
   const calculateProgress = (position: number, totalGroups: number) => {
     if (totalGroups <= 1) return 100
     const progressValue = 100 - ((position - 1) / totalGroups) * 100
     return Math.min(Math.max(progressValue, 5), 100) // Between 5% and 100%
   }
-  
+
   // Format the check-in time
   const formatTime = (timestamp: string | undefined) => {
-
-    return  new Date().toLocaleTimeString("en-IN", {
+    return new Date().toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
-    });
+    })
   }
 
   useEffect(() => {
-   // requestNotificationPermission()
+    // requestNotificationPermission()
 
     const fetchData = async () => {
       try {
@@ -89,10 +97,8 @@ function WaitingStatusPage() {
 
   useEffect(() => {
     if (!loading && checkIns.length > 0 && mobileNumber) {
-      const foundCheckIn = checkIns.find(
-        (record) => record.mobileNumber === mobileNumber
-      )
-      
+      const foundCheckIn = checkIns.find((record) => record.mobileNumber === mobileNumber)
+
       if (foundCheckIn) {
         setCurrentCheckIn(foundCheckIn)
         if (foundCheckIn.status === "seated") {
@@ -101,21 +107,20 @@ function WaitingStatusPage() {
           //   icon: "/path/to/icon.png"
           // })
           if (foundCheckIn.id !== undefined) {
-            dispatch(deleteCheckIn(foundCheckIn.id) as any).then(()=>{
+            dispatch(deleteCheckIn(foundCheckIn.id) as any).then(() => {
               router.push("/seated")
             })
           }
-        }else if(foundCheckIn.status === "cancelled"){
+        } else if (foundCheckIn.status === "cancelled") {
           if (foundCheckIn.id !== undefined) {
-            dispatch(deleteCheckIn(foundCheckIn.id) as any)
-            .then(()=>{
+            dispatch(deleteCheckIn(foundCheckIn.id) as any).then(() => {
               router.push("/cancelled")
             })
           }
         }
       } else {
         setLoading(true)
-        
+
         setLoading(false)
       }
     } else if (!loading && checkIns.length === 0) {
@@ -125,14 +130,45 @@ function WaitingStatusPage() {
     }
   }, [checkIns, loading, mobileNumber])
 
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (currentCheckIn && !isCancelled) {
+        e.preventDefault()
+        e.returnValue = ""
+        setShowExitDialog(true)
+        return ""
+      }
+    }
+
+    // Handle browser's back button
+    const handlePopState = (e: PopStateEvent) => {
+      if (currentCheckIn && !isCancelled) {
+        e.preventDefault()
+        setShowExitDialog(true)
+        // Push current state back to prevent navigation
+        window.history.pushState(null, "", window.location.pathname + window.location.search)
+      }
+    }
+
+    // Push state on component mount to enable popstate detection
+    window.history.pushState(null, "", window.location.pathname + window.location.search)
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    window.addEventListener("popstate", handlePopState)
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+      window.removeEventListener("popstate", handlePopState)
+    }
+  }, [currentCheckIn, isCancelled])
 
   const handleCancelCheckIn = () => {
     if (currentCheckIn && currentCheckIn.id) {
-      dispatch(deleteCheckIn(currentCheckIn.id) as any);
-      setIsCancelled(true);
-      router.push("/");
+      dispatch(deleteCheckIn(currentCheckIn.id) as any)
+      setIsCancelled(true)
+      router.push("/")
     }
-  };
+  }
 
   if (loading) {
     return (
@@ -164,7 +200,7 @@ function WaitingStatusPage() {
   }
 
   // if (currentCheckIn && currentCheckIn.status === "cancelled" ) {
-   
+
   //   return (
   //     <div className="flex min-h-screen items-center justify-center bg-muted p-4">
   //       <Card className="w-full max-w-md">
@@ -222,24 +258,18 @@ function WaitingStatusPage() {
   if (currentCheckIn) {
     const waitTime = calculateWaitTime(currentCheckIn.queuePosition)
     const progress = calculateProgress(currentCheckIn.queuePosition, checkIns.length)
-    
+
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted p-4 ">
         <Card className="w-full max-w-md border-2">
-        <div className="flex justify-center -mt-8 mb-2">
-          <div className="h-16 w-16 rounded-full bg-white shadow-md border-2 border-green-700 flex items-center justify-center">
-            <img 
-              src="./greenspoon.png" 
-              alt="Restaurant Logo"
-              className="w-full h-full object-cover rounded-full" 
-            />
+          <div className="flex justify-center -mt-8 mb-2">
+            <div className="h-16 w-16 rounded-full bg-white shadow-md border-2 border-green-700 flex items-center justify-center">
+              <img src="./greenspoon.png" alt="Restaurant Logo" className="w-full h-full object-cover rounded-full" />
+            </div>
           </div>
-        </div>
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">Waiting Status</CardTitle>
-            <CardDescription>
-              Your group is in the queue (Position: {currentCheckIn.queuePosition})
-            </CardDescription>
+            <CardDescription>Your group is in the queue (Position: {currentCheckIn.queuePosition})</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -259,9 +289,7 @@ function WaitingStatusPage() {
                     Group size: {currentCheckIn.numberOfPeople}
                     {currentCheckIn.hasSeniors && ` (incl. ${currentCheckIn.seniorCount} seniors)`}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    Mobile: {currentCheckIn.mobileNumber}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Mobile: {currentCheckIn.mobileNumber}</p>
                   <p className="text-sm text-muted-foreground">
                     Check-in time: {formatTime(currentCheckIn.checkInTime) || "Recently"}
                   </p>
@@ -271,18 +299,11 @@ function WaitingStatusPage() {
 
             <div className="rounded-lg border p-4">
               <h3 className="mb-2 font-semibold">Table assignment</h3>
-              <p className="text-sm text-muted-foreground">
-                You will be notified when your table is ready.
-              </p>
+              <p className="text-sm text-muted-foreground">You will be notified when your table is ready.</p>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-          
-            <Button 
-              variant="destructive" 
-              className="w-full mb-2"
-              onClick={handleCancelCheckIn}
-            >
+            <Button variant="destructive" className="w-full mb-2" onClick={handleCancelCheckIn}>
               Cancel Check-in
             </Button>
             <Link href="/" className="w-full">
@@ -291,19 +312,19 @@ function WaitingStatusPage() {
               </Button>
             </Link>
             <div className="flex justify-center gap-6 my-4">
-              <a 
-                href="https://www.instagram.com/greenspoon_kochi?igsh=NWV5d3VsaDZybGN3" 
-                target="_blank" 
+              <a
+                href="https://www.instagram.com/greenspoon_kochi?igsh=NWV5d3VsaDZybGN3"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="flex flex-col items-center text-black hover:text-green-700"
               >
                 <Instagram size={24} />
                 <span className="text-xs mt-1">Follow Us</span>
               </a>
-              
-              <a 
-                href="https://www.google.com/search?q=Green+Spoon,+Pure+Veg+Haven&sca_esv=6455b9a1373b2beb&hl=en-IN&prmd=imsvn&sxsrf=AHTn8zrI7pxHkR_EJGF6vLlzGv1wTBq31Q:1742760083274&si=APYL9bs7Hg2KMLB-4tSoTdxuOx8BdRvHbByC_AuVpNyh0x2KzROmwwNfmaeMWSZ7cGhrUhUFfL0SCAbTo202gkbbTFGFk_2879atiQ-AqgI2om2AqKuDqAU%3D&sa=X&ved=2ahUKEwivz8Sd_6CMAxUmsFYBHbpUEfoQ9qsLegQIFBAG&biw=411&bih=809&dpr=2.63" 
-                target="_blank" 
+
+              <a
+                href="https://www.google.com/search?q=Green+Spoon,+Pure+Veg+Haven&sca_esv=6455b9a1373b2beb&hl=en-IN&prmd=imsvn&sxsrf=AHTn8zrI7pxHkR_EJGF6vLlzGv1wTBq31Q:1742760083274&si=APYL9bs7Hg2KMLB-4tSoTdxuOx8BdRvHbByC_AuVpNyh0x2KzROmwwNfmaeMWSZ7cGhrUhUFfL0SCAbTo202gkbbTFGFk_2879atiQ-AqgI2om2AqKuDqAU%3D&sa=X&ved=2ahUKEwivz8Sd_6CMAxUmsFYBHbpUEfoQ9qsLegQIFBAG&biw=411&bih=809&dpr=2.63"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="flex flex-col items-center text-black hover:text-green-700"
               >
@@ -335,5 +356,37 @@ function WaitingStatusPage() {
         </CardFooter>
       </Card>
     </div>
+  
+  )
+  currentCheckIn && (
+    <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Leave the queue?</DialogTitle>
+          <DialogDescription>Are you sure you want to leave the queue? Your position will be lost.</DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="flex flex-col sm:flex-row sm:justify-between gap-2">
+          <Button type="button" variant="outline" onClick={() => setShowExitDialog(false)} className="sm:w-auto w-full">
+            No, stay in queue
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => {
+              if (currentCheckIn && currentCheckIn.id) {
+                dispatch(deleteCheckIn(currentCheckIn.id) as any)
+                setIsCancelled(true)
+                router.push("/")
+              }
+              setShowExitDialog(false)
+            }}
+            className="sm:w-auto w-full"
+          >
+            Yes, leave queue
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
+
