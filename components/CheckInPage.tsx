@@ -45,8 +45,11 @@ export default function CheckInPage() {
         alert("Mobile number already exists")
       )
     }
+    const name = (form.elements.namedItem("name") as HTMLInputElement).value; // Get the name value
+
     const mobileNumber = (form.elements.namedItem("mobileNumber") as HTMLInputElement).value;
     const checkInData = {
+        name:name,
         numberOfPeople: parseInt((form.elements.namedItem("groupSize") as HTMLInputElement).value),
         mobileNumber: mobileNumberCheck,
         hasSeniors: hasSeniorsChecked,
@@ -95,6 +98,10 @@ export default function CheckInPage() {
         </CardHeader>
         <form onSubmit={handleInputs}>
           <CardContent className="space-y-4">
+          <div className="space-y-2">
+              <Label htmlFor="groupSize">Enter Your Name</Label>
+              <Input id="name" name="name" type="text" placeholder="Enter your name" required className="border-gray-300 focus:border-green-600" />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="groupSize">Number of people in your group</Label>
               <Input id="groupSize" name="groupSize" type="number" min="1" placeholder="Enter group size" required className="border-gray-300 focus:border-green-600" />

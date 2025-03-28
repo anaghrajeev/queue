@@ -26,6 +26,7 @@ import { fetchCheckIns, clearCheckIns,updateCheckInPosition,updateCheckInStatus,
 // Extend the CheckInState to include an id field for management
 interface CheckInState {
   id?: number
+  name?: string // Add this property
   numberOfPeople: number
   mobileNumber: string
   hasSeniors: boolean
@@ -462,6 +463,9 @@ export default function Dashboard() {
                                       <Badge className="bg-amber-500">Seniors: {group.seniorCount}</Badge>
                                     )}
                                   </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    Name: {group.name} 
+                                  </p>
                                   <p className="text-sm text-muted-foreground">
                                     Size: {group.numberOfPeople} people
                                   </p>

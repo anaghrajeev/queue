@@ -4,6 +4,7 @@ import { RealtimeChannel } from "@supabase/supabase-js";
 
 interface CheckInState {
   id?: number;
+  name:string;
   numberOfPeople: number;
   mobileNumber: string;
   hasSeniors: boolean;
