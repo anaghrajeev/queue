@@ -137,8 +137,9 @@ function WaitingStatusPage() {
           //   icon: "/path/to/icon.png"
           // })
           if (foundCheckIn.id !== undefined) {
-           
+            dispatch(deleteCheckIn(foundCheckIn.id) as any).then(()=>{
               router.push("/seated")
+            })
           }
         }else if(foundCheckIn.status === "cancelled"){
           if (foundCheckIn.id !== undefined) {
