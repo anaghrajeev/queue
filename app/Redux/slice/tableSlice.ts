@@ -16,11 +16,10 @@ export interface Table {
 
 export interface TableState {
   tableId: number;
-  tableNumber: number;
+  tableNumber: string;
   capacity: number;
   status: TableStatus;
-  engagedTime: string | null;
-  cleaningTime: string | null;
+
 }
 
 interface TableListState {
@@ -42,8 +41,9 @@ export const fetchTables = createAsyncThunk(
     try {
       const { data, error } = await supabase
         .from('tables')
-        .select('*')
-        .order('tableNumber', { ascending: true });
+        .select('*') //order by status fre
+        
+        .order('status')
 
       if (error) throw error;
       return data as TableState[];
@@ -80,8 +80,7 @@ export const updateTable = createAsyncThunk(
           tableNumber: table.tableNumber,
           capacity: table.capacity,
           status: table.status,
-          engagedTime: table.engagedTime,
-          cleaningTime: table.cleaningTime,
+       
         })
         .eq('tableId', table.tableId)
         .select();
@@ -117,7 +116,7 @@ export const subscribeToTables = createAsyncThunk(
     "tables/subscribeToTables",
     async (_, { dispatch }) => {
       const channel: RealtimeChannel = supabase
-        .channel("check_ins_realtime")
+        .channel("tables_realtime")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "tables" },

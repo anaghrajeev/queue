@@ -39,11 +39,10 @@ function AdminDashboardPage() {
   const { toast } = useToast();
 
   const [newTable, setNewTable] = useState<Omit<TableState, 'tableId'>>({
-    tableNumber: 0,
+    tableNumber: "",
     capacity: 0,
     status: TableStatus.free,
-    engagedTime: null,
-    cleaningTime: null
+  
   });
 
   const [editingTable, setEditingTable] = useState<TableState | null>(null);
@@ -80,11 +79,10 @@ function AdminDashboardPage() {
 
     await dispatch(addTable(newTable));
     setNewTable({
-      tableNumber: 0,
+      tableNumber: "",
       capacity: 2,
       status: TableStatus.free,
-      engagedTime: null,
-      cleaningTime: null
+ 
     });
     
     toast({
@@ -167,11 +165,10 @@ function AdminDashboardPage() {
                   <Label htmlFor="tableNumber">Table Number</Label>
                   <Input 
                     id="tableNumber" 
-                    type="number" 
+                    type="text" 
                     value={newTable.tableNumber || ""} 
-                    onChange={(e) => setNewTable({ ...newTable, tableNumber: Number(e.target.value) })} 
+                    onChange={(e) => setNewTable({ ...newTable, tableNumber: e.target.value})} 
                     className="w-32" 
-                    min="1" 
                     required 
                   />
                 </div>
@@ -246,7 +243,7 @@ function AdminDashboardPage() {
                                 value={editingTable.tableNumber} 
                                 onChange={(e) => setEditingTable({ 
                                   ...editingTable, 
-                                  tableNumber: Number(e.target.value) 
+                                  tableNumber: e.target.value 
                                 })} 
                                 className="w-20" 
                                 min="1" 
