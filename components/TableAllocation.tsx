@@ -56,8 +56,8 @@ const TableAllocation = ({
   if (!assignedTableId || assignedTableId === "" || !isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white border border-gray-200 shadow-xl w-full max-w-md overflow-hidden animate-fadeIn">
+    <div className="w-full flex items-center justify-center bg-white border-2 border-gray-200 rounded-lg shadow-lg p-4">
+      <div className="bg-white w-full max-w-md overflow-hidden animate-fadeIn">
         {/* Header - Ticket-like tear edge */}
         <div className="bg-black h-8 relative overflow-hidden">
           <div className="absolute inset-x-0 bottom-0">

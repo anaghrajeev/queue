@@ -57,7 +57,7 @@ export default function CheckInPage() {
     
     const form = e.target as HTMLFormElement;
     const mobileNumberCheck = (form.elements.namedItem("mobileNumber") as HTMLInputElement).value;
-    const name = (form.elements.namedItem("name") as HTMLInputElement).value;
+    const name = (form.elements.namedItem("name") as HTMLInputElement).value.toUpperCase();
     const groupSize = parseInt((form.elements.namedItem("groupSize") as HTMLInputElement).value);
 
     // Validation
@@ -209,8 +209,8 @@ export default function CheckInPage() {
               {isSubmitting ? "Processing..." : "Check In"}
             </Button>
             <div className="text-center text-sm">
-              <Link href="/" className="text-green-700 hover:text-green-800 underline">
-                Back to home
+              <Link href="https://greenspoon-queue-management.vercel.app/waiting-status" className="text-green-700 hover:text-green-800 underline">
+                Queue Status
               </Link>
             </div>
           </CardFooter>
